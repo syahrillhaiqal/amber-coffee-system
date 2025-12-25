@@ -6,7 +6,7 @@ export default function StudentLayout() {
         <>
             {/* Student Navbar only appears here */}
             <Navbar />
-            <div className="pb-20">
+            <div className="">
                 <Outlet />
             </div>
         </>

@@ -24,7 +24,7 @@ export default function AdminLogin() {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
             if (user) {
                 if (ALLOWED_EMAILS.includes(user.email)) {
-                    navigate("/admin/schedule", { replace: true });
+                    navigate("/admin/dashboard", { replace: true });
                 } else {
                     setError("Access Denied: Account not authorized.");
                     setIsChecking(false);
@@ -52,7 +52,7 @@ export default function AdminLogin() {
 
             // Check if this user is actually allowed
             if (ALLOWED_EMAILS.includes(user.email)) {
-                navigate("/admin/schedule", { replace: true });
+                navigate("/admin/dashboard", { replace: true });
             } else {
                 setError("Access Denied: You are not an Admin.");
                 // Vital: Logout immediately if they are not admin
@@ -121,7 +121,7 @@ export default function AdminLogin() {
                                 required
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
-                                className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                                className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all text-base"
                                 placeholder="admin@gmail.com"
                             />
                         </div>
@@ -141,7 +141,7 @@ export default function AdminLogin() {
                                 required
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                                className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all text-base"
                                 placeholder="••••••••"
                             />
                         </div>

@@ -189,7 +189,7 @@ export default function CheckoutPage({ clearCart }) {
                     </h2>
                     <input 
                         placeholder="Name on Cup (e.g. Ali)" 
-                        className="w-full p-3 bg-stone-50 rounded-xl border-none focus:ring-2 focus:ring-primary/20 transition-all"
+                        className="w-full p-3 bg-stone-100  rounded-xl border-none focus:ring-2 focus:ring-primary/20 transition-all"
                         value={formData.name}
                         onChange={e => setFormData({...formData, name: e.target.value})}
                     />
@@ -197,7 +197,7 @@ export default function CheckoutPage({ clearCart }) {
                         type="tel"
                         inputMode="numeric"
                         placeholder="WhatsApp Number (e.g. 0123456789)" 
-                        className="w-full p-3 bg-stone-50 rounded-xl border-none focus:ring-2 focus:ring-primary/20 transition-all"
+                        className="w-full p-3 bg-stone-100  rounded-xl border-none focus:ring-2 focus:ring-primary/20 transition-all"
                         value={formData.phone}
                         onChange={e => setFormData({...formData, phone: e.target.value.replace(/\D/g, '')})}
                     />
@@ -212,7 +212,7 @@ export default function CheckoutPage({ clearCart }) {
                     <div className="relative">
                         <MapPin className="absolute left-3 top-3 text-gray-400" size={20}/>
                         <select 
-                            className="w-full pl-10 p-3 bg-stone-50 rounded-xl border-none focus:ring-2 focus:ring-primary/20 appearance-none bg-white"
+                            className="w-full pl-10 p-3 bg-stone-100 rounded-xl border-none focus:ring-2 focus:ring-primary/20 appearance-none"
                             value={formData.pickupPoint}
                             onChange={e => setFormData({...formData, pickupPoint: e.target.value})}
                         >
@@ -225,7 +225,7 @@ export default function CheckoutPage({ clearCart }) {
                     {formData.pickupPoint === "NR" && (
                         <textarea 
                             placeholder="Full Address (House No, Street...)"
-                            className="w-full p-3 bg-orange-50 rounded-xl border border-orange-100 focus:ring-2 focus:ring-orange-200 transition-all text-sm"
+                            className="w-full p-3 bg-orange-50 rounded-xl border border-orange-100 focus:ring-2 focus:ring-orange-200 transition-all text-base"
                             rows="2"
                             value={formData.address}
                             onChange={e => setFormData({...formData, address: e.target.value})}

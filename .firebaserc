@@ -1,5 +1,9 @@
 {
   "projects": {
-    "default": "amber-coffee-2f671"
-  }
+    "default": "amber-coffee-2f671",
+    "dev": "amber-coffee-2f671",
+    "prod": "amber-coffee-8b081"
+  },
+  "targets": {},
+  "etags": {}
 }

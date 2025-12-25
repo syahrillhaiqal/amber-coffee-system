@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-// import Navbar from "./components/Navbar"; <--- REMOVE THIS IMPORT
-import StudentLayout from "./components/StudentLayout"; // <--- ADD THIS
+import StudentLayout from "./components/StudentLayout";
 import HomePage from "./pages/student/HomePage";
 import TripSelection from "./pages/student/TripSelection";
 import MenuPage from "./pages/student/MenuPage";
@@ -19,15 +18,14 @@ import AdminDashboard from "./pages/admin/AdminDashboard";
 import PaymentStatusPage from "./pages/student/PaymentStatusPage";
 
 function App() {
-    // 1. Initialize Cart from LocalStorage
+
     const [cart, setCart] = useState(() => {
-        const saved = localStorage.getItem("amberCart");
+        const saved = sessionStorage.getItem("amberCart");
         return saved ? JSON.parse(saved) : [];
     });
 
-    // 2. Save Cart whenever it changes
     useEffect(() => {
-        localStorage.setItem("amberCart", JSON.stringify(cart));
+        sessionStorage.setItem("amberCart", JSON.stringify(cart));
     }, [cart]);
 
     const addToCart = (item, quantity, remark) => {
@@ -48,7 +46,7 @@ function App() {
 
     const clearCart = () => {
         setCart([]);
-        localStorage.removeItem("amberCart"); // Clear storage too
+        sessionStorage.removeItem("amberCart"); 
     };
 
     return (

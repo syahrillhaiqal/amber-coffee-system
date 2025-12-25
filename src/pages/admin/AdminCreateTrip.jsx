@@ -135,7 +135,7 @@ export default function AdminCreateTrip() {
                                 min={getTodayString()} // HTML5 Validation helper
                                 value={tripDate} 
                                 onChange={e => setTripDate(e.target.value)} 
-                                className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200" 
+                                className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 appearance-none" 
                             />
                         </div>
                         
@@ -143,18 +143,18 @@ export default function AdminCreateTrip() {
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
                                     <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Open</label>
-                                    <input type="time" value={openTime} onChange={e => setOpenTime(e.target.value)} className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200" />
+                                    <input type="time" value={openTime} onChange={e => setOpenTime(e.target.value)} className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 appearance-none" />
                                 </div>
                                 <div>
                                     <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Close</label>
-                                    <input type="time" value={closeTime} onChange={e => setCloseTime(e.target.value)} className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200" />
+                                    <input type="time" value={closeTime} onChange={e => setCloseTime(e.target.value)} className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 appearance-none" />
                                 </div>
                             </div>
                             <div>
                                 <label className="text-xs font-bold text-blue-500 uppercase mb-1 block">Delivery Time</label>
-                                <input type="time" value={deliverTime} onChange={e => setDeliverTime(e.target.value)} className="w-full p-3 bg-blue-50 text-blue-900 font-bold rounded-xl border border-blue-100" />
+                                <input type="time" value={deliverTime} onChange={e => setDeliverTime(e.target.value)} className="w-full p-3 bg-blue-50 text-blue-900 font-bold rounded-xl border border-blue-100 appearance-none" />
                             </div>
-                        </div>
+                        </div>  
 
                         <div className="pt-4 border-t border-gray-100">
                             <h2 className="font-bold text-gray-800 flex items-center gap-2 mb-4">
@@ -166,7 +166,7 @@ export default function AdminCreateTrip() {
                                 min="1"
                                 value={capacity} 
                                 onChange={e => setCapacity(e.target.value)} 
-                                className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200" 
+                                className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 appearance-none" 
                             />
                         </div>
                     </div>

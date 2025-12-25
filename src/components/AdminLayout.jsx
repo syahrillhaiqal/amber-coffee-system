@@ -10,13 +10,11 @@ export default function AdminLayout() {
 
     const isActivePath = (path) => {
         if (path === "/admin") {
-            // Special case for root admin dashboard if you have one
             return location.pathname === path;
         }
         return location.pathname.startsWith(path);
     };
 
-    // Helper for Desktop Sidebar styling
     const getLinkClass = (path) => {
         const active = isActivePath(path); 
 
@@ -28,7 +26,6 @@ export default function AdminLayout() {
         return classes;
     };
 
-    // Helper for Mobile Tab styling (To keep code clean)
     const getMobileTabClass = (path) => {
         const active = isActivePath(path); 
 
@@ -66,7 +63,7 @@ export default function AdminLayout() {
     );
 
     return (
-        <div className="min-h-screen font-sans flex bg-stone-100">
+        <div className="min-h-screen font-sans bg-stone-100">
             {/* --- 1. DESKTOP SIDEBAR --- */}
             <aside className="hidden md:flex flex-col w-64 bg-white border-r border-stone-200 fixed h-full z-20 shadow-sm">
                 {/* Logo Area */}
@@ -97,7 +94,7 @@ export default function AdminLayout() {
             </aside>
 
             {/* --- 2. MAIN CONTENT AREA --- */}
-            <main className="flex-1 flex flex-col min-h-screen md:ml-64">
+            <main className="min-h-screen md:ml-64">
                 {/* MOBILE HEADER */}
                 <div className="md:hidden bg-white border-b border-stone-200 sticky top-0 z-50 shadow-sm">
                     <nav className="px-4 py-3 flex justify-between items-center">
@@ -121,7 +118,7 @@ export default function AdminLayout() {
                             to="/admin/dashboard"
                             className={getMobileTabClass("/admin/dashboard")}
                         >
-                            <Calendar size={16} /> Dashboard
+                            <LayoutDashboard size={16} /> Dashboard
                         </Link>
                         <Link
                             to="/admin/schedule"

@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
-import { Search, ShoppingBag, Clock, Star, Flame, Loader2 } from "lucide-react"; // Added Loader2
+import { Search, ShoppingBag, Clock, Star, Flame, Loader2, X } from "lucide-react"; 
 import ProductModal from "../../components/ProductModal";
 import CartDrawer from "../../components/CartDrawer";
-import { useLocation, Link, useNavigate } from "react-router-dom"; // Added useNavigate
+import { useLocation, Link, useNavigate } from "react-router-dom";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 
@@ -10,16 +10,14 @@ export default function MenuPage({ addToCart, removeFromCart, cart }) {
     const location = useLocation();
     const navigate = useNavigate();
     
-    // Initialize Trip Info
     const [tripInfo, setTripInfo] = useState(() => {
         return location.state || JSON.parse(localStorage.getItem("currentTrip"));
     });
 
     const tabsRef = useRef(null);
 
-    // State
     const [allItems, setAllItems] = useState([]);
-    const [loading, setLoading] = useState(true); // NEW: Specific loading state
+    const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedItem, setSelectedItem] = useState(null);
     const [isCartOpen, setIsCartOpen] = useState(false);
@@ -27,6 +25,7 @@ export default function MenuPage({ addToCart, removeFromCart, cart }) {
 
     // Fetch Menu
     useEffect(() => {
+
         // Safety Check: If no trip info, go back to selection
         if (!tripInfo) {
             navigate("/trip");
@@ -34,16 +33,11 @@ export default function MenuPage({ addToCart, removeFromCart, cart }) {
         }
 
         const fetchMenu = async () => {
-            setLoading(true); // Start Loading
+            setLoading(true);
             try {
                 const snapshot = await getDocs(collection(db, "menu_items"));
                 const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                
                 const allowedIds = tripInfo?.selectedMenuIds || [];
-                
-                // Debugging: Check console if list remains empty
-                console.log("Allowed IDs:", allowedIds);
-                console.log("Fetched Items:", data.length);
 
                 const available = data.filter(item => 
                     allowedIds.includes(item.id) && item.isAvailable
@@ -52,7 +46,7 @@ export default function MenuPage({ addToCart, removeFromCart, cart }) {
             } catch (error) {
                 console.error("Error fetching menu:", error);
             } finally {
-                setLoading(false); // Stop Loading regardless of result
+                setLoading(false); 
             }
         };
         fetchMenu();
@@ -95,7 +89,7 @@ export default function MenuPage({ addToCart, removeFromCart, cart }) {
         return () => window.removeEventListener('scroll', handleScroll);
     }, [categories]); 
 
-    // --- AUTO SCROLL TABS LOGIC (Fix from previous request) ---
+    // --- AUTO SCROLL TABS LOGIC ---
     useEffect(() => {
         if (activeCategory && tabsRef.current) {
             const activeTab = document.getElementById(`tab-${activeCategory}`);
@@ -118,9 +112,6 @@ export default function MenuPage({ addToCart, removeFromCart, cart }) {
         }
     };
 
-    // --- RENDER ---
-
-    // 1. Show Loading Screen
     if (loading) {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center bg-stone-100 text-stone-400">
@@ -130,7 +121,6 @@ export default function MenuPage({ addToCart, removeFromCart, cart }) {
         );
     }
 
-    // 2. Show Main Content
     return (
         <div className="pb-24">
             <div className="sticky top-0 z-10 bg-stone-100 pb-2 shadow-sm">
@@ -139,12 +129,25 @@ export default function MenuPage({ addToCart, removeFromCart, cart }) {
                     {/* Search Bar */}
                     <div className="relative mb-3">
                         <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
+                        
                         <input
                             type="text"
                             placeholder="Search..."
-                            className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm"
+                            value={searchTerm}
+
+                            className="w-full pl-10 pr-10 py-2 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 text-base"
+                            
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
+
+                        {searchTerm && (
+                            <button 
+                                onClick={() => setSearchTerm("")}
+                                className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600 bg-white"
+                            >
+                                <X size={18} />
+                            </button>
+                        )}
                     </div>
 
                     {/* Horizontal Categories */}
@@ -177,7 +180,7 @@ export default function MenuPage({ addToCart, removeFromCart, cart }) {
             {/* Menu List */}
             <div className="px-4 max-w-md mx-auto space-y-8 mt-4">
                 {allItems.length === 0 ? (
-                    // 3. Show Empty State (Loaded but empty)
+                    // Empty state
                     <div className="text-center py-20 text-stone-400">
                         <ShoppingBag size={48} className="mx-auto mb-4 opacity-20" />
                         <p>No items available for this trip.</p>

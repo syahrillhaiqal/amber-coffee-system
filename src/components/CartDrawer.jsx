@@ -78,59 +78,57 @@ export default function CartDrawer({ cart, close, tripInfo, removeFromCart }) { 
                     )}
                 </div>
 
-                {/* Footer (Calculations & Checkout) - Remains same as previous step */}
+                                {/* Footer (Calculations & Checkout) */}
                 {cart.length > 0 && (
-                    <div className="border-t p-5 bg-white space-y-5 shadow-[0_-5px_20px_rgba(0,0,0,0.05)]">
-                        {/* ... Protection Selector Logic (Same as before) ... */}
-                        
-                        {/* Re-paste protection selector code here if you lost it, or keep existing */}
-                         <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100">
-                            <div className="flex justify-between items-center mb-3">
-                                <p className="text-xs font-bold text-blue-600 uppercase tracking-wider flex items-center gap-1">
-                                    <ShieldCheck size={14}/> Protection Package
+                    <div className="border-t p-3 bg-white space-y-3 shadow-[0_-5px_20px_rgba(0,0,0,0.05)]">
+                        {/* Protection Selector */}
+                         <div className="bg-blue-50 p-3 rounded-xl border border-blue-100">
+                            <div className="flex justify-between items-center mb-2">
+                                <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider flex items-center gap-1">
+                                    <ShieldCheck size={12}/> Protection Package
                                 </p>
-                                <button onClick={() => setShowPackageInfo(true)} className="text-xs font-bold text-blue-500 underline flex items-center gap-1">
-                                    <Info size={14}/> View Details
+                                <button onClick={() => setShowPackageInfo(true)} className="text-[10px] font-bold text-blue-500 underline flex items-center gap-1">
+                                    <Info size={12}/> View Details
                                 </button>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-2 gap-2">
                                 <button 
                                     onClick={() => setProtectionType('basic')}
-                                    className={`p-3 rounded-xl border text-left transition-all ${
+                                    className={`p-2 rounded-lg border text-left transition-all ${
                                         protectionType === 'basic' 
                                         ? 'border-blue-500 bg-white ring-2 ring-blue-100 shadow-sm' 
                                         : 'border-transparent bg-blue-100/50 hover:bg-blue-100'
                                     }`}
                                 >
-                                    <span className="font-bold text-sm text-gray-800 block">Basic</span>
-                                    <span className="text-xs text-blue-600 font-bold">RM 1.00 <span className="text-gray-400 font-normal">/cup</span></span>
+                                    <span className="font-bold text-xs text-gray-800 block">Basic</span>
+                                    <span className="text-[10px] text-blue-600 font-bold">RM 1.00 <span className="text-gray-400 font-normal">/cup</span></span>
                                 </button>
 
                                 <button 
                                     onClick={() => setProtectionType('premium')}
-                                    className={`p-3 rounded-xl border text-left transition-all ${
+                                    className={`p-2 rounded-lg border text-left transition-all ${
                                         protectionType === 'premium' 
                                         ? 'border-blue-500 bg-white ring-2 ring-blue-100 shadow-sm' 
                                         : 'border-transparent bg-blue-100/50 hover:bg-blue-100'
                                     }`}
                                 >
-                                    <span className="font-bold text-sm text-gray-800 block">Premium</span>
-                                    <span className="text-xs text-blue-600 font-bold">RM 2.00 <span className="text-gray-400 font-normal">/cup</span></span>
+                                    <span className="font-bold text-xs text-gray-800 block">Premium</span>
+                                    <span className="text-[10px] text-blue-600 font-bold">RM 2.00 <span className="text-gray-400 font-normal">/cup</span></span>
                                 </button>
                             </div>
                         </div>
 
-                        <div className="space-y-1">
-                            <div className="flex justify-between text-sm text-gray-500">
+                        <div className="space-y-0.5">
+                            <div className="flex justify-between text-xs text-gray-500">
                                 <span>Subtotal</span>
                                 <span>RM {itemsTotal.toFixed(2)}</span>
                             </div>
-                            <div className="flex justify-between text-sm text-blue-600 font-medium">
+                            <div className="flex justify-between text-xs text-blue-600 font-medium">
                                 <span>Protection Fee ({totalCups} cups)</span>
                                 <span>RM {protectionFee.toFixed(2)}</span>
                             </div>
-                            <div className="flex justify-between text-xl font-black text-gray-900 pt-2 border-t border-gray-100 mt-2">
+                            <div className="flex justify-between text-lg font-black text-gray-900 pt-1.5 border-t border-gray-100 mt-1.5">
                                 <span>Total</span>
                                 <span className="text-primary">RM {finalTotal.toFixed(2)}</span>
                             </div>
@@ -138,7 +136,7 @@ export default function CartDrawer({ cart, close, tripInfo, removeFromCart }) { 
 
                         <button 
                             onClick={handleCheckout}
-                            className="w-full bg-stone-900 text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:bg-black transition-transform active:scale-[0.98]"
+                            className="w-full bg-stone-900 text-white py-3 rounded-xl font-bold text-base shadow-lg hover:bg-black transition-transform active:scale-[0.98]"
                         >
                             Checkout Now
                         </button>

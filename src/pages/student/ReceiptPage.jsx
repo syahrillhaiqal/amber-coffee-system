@@ -113,8 +113,11 @@ export default function ReceiptPage() {
                     )}
                 </div>
 
-                <div className="text-center">
-                    <p className="text-[10px] text-stone-400">Please present this receipt upon collection.</p>
+                <div className="mt-4 bg-stone-800 text-white py-3 px-4 rounded-xl shadow-inner">
+                    <p className="text-sm font-bold flex items-center justify-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
+                        Present this receipt to collect your order
+                    </p>
                 </div>
             </div>
 
