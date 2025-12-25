@@ -1,0 +1,23 @@
+/* TAILWIND CONFIG */
+@import "tailwindcss";
+@theme {
+
+    --color-primary: #ea580c;
+    --color-secondary: #fff7ed;
+
+}
+
+/* Fix for iOS Date/Time Inputs */
+/* input[type="date"],
+input[type="time"],
+input[type="datetime-local"] {
+  -webkit-appearance: none; 
+  appearance: none;
+  min-height: 50px; 
+  display: block; 
+  text-align: left; 
+}
+
+input[type="date"]::-webkit-date-and-time-value {
+    text-align: left;
+} */
