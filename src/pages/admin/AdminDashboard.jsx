@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { DollarSign, ShoppingBag, Truck, TrendingUp, Users } from "lucide-react";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { DollarSign, ShoppingBag, Truck, TrendingUp } from "lucide-react";
+import { collection, query, where, onSnapshot } from "firebase/firestore"; // Changed getDocs to onSnapshot
 import { db } from "../../lib/firebase";
 
 export default function AdminDashboard() {
@@ -13,54 +13,60 @@ export default function AdminDashboard() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const fetchStats = async () => {
-            try {
-                const todayStr = new Date().toISOString().split('T')[0];
+        const todayStr = new Date().toISOString().split('T')[0];
 
-                // 1. Get Today's Trips
-                const tripsRef = collection(db, "delivery_slots");
-                const tripsQ = query(tripsRef, where("dateString", "==", todayStr));
-                const tripsSnap = await getDocs(tripsQ);
+        const tripsRef = collection(db, "delivery_slots");
+        const tripsQ = query(tripsRef, where("dateString", "==", todayStr));
+        
+        const unsubscribeTrips = onSnapshot(tripsQ, (snapshot) => {
+            setStats(prev => ({
+                ...prev,
+                tripsToday: snapshot.size
+            }));
+        });
 
-                // 2. Get All Orders (In a real app, you might want to limit this query)
-                const ordersRef = collection(db, "orders");
-                const ordersSnap = await getDocs(ordersRef);
+        const ordersRef = collection(db, "orders");
+        
+        const unsubscribeOrders = onSnapshot(ordersRef, (snapshot) => {
+            let revenue = 0;
+            let active = 0;
+            let total = 0;
+
+            snapshot.forEach(doc => {
+                const data = doc.data();
                 
-                let revenue = 0;
-                let active = 0;
-                let total = 0;
-
-                ordersSnap.forEach(doc => {
-                    const data = doc.data();
+                if (data.paymentStatus === 'PAID') {
                     const orderDate = data.createdAt.split('T')[0];
                     
-                    // Calculate Today's Revenue
                     if (orderDate === todayStr) {
                         revenue += data.totalPrice || 0;
+                        total++; 
                     }
 
-                    // Count Active Orders (Not Delivered)
-                    if (data.status !== "DELIVERED" && data.status !== "COMPLETED") {
+                    const isFinished = ["DELIVERED", "COMPLETED", "CANCELLED"].includes(data.status);
+                    if (!isFinished) {
                         active++;
                     }
-                    total++;
-                });
+                }
+            });
 
-                setStats({
-                    todaySales: revenue,
-                    activeOrders: active,
-                    tripsToday: tripsSnap.size,
-                    totalOrders: total
-                });
+            setStats(prev => ({
+                ...prev,
+                todaySales: revenue,
+                activeOrders: active,
+                totalOrders: total
+            }));
+            
+            setLoading(false);
+        }, (error) => {
+            console.error("Real-time Error:", error);
+            setLoading(false);
+        });
 
-            } catch (err) {
-                console.error(err);
-            } finally {
-                setLoading(false);
-            }
+        return () => {
+            unsubscribeTrips();
+            unsubscribeOrders();
         };
-
-        fetchStats();
     }, []);
 
     const StatCard = ({ title, value, icon: Icon, color, sub }) => (
@@ -77,10 +83,10 @@ export default function AdminDashboard() {
     );
 
     return (
-        <div className="space-y-8">
+        <div className="space-y-8 animate-fade-in">
             <div>
                 <h1 className="text-3xl font-bold text-stone-800">Welcome Back, Admin</h1>
-                <p className="text-stone-500">Here is what's happening at Amber Coffee today.</p>
+                <p className="text-stone-500">Live overview of Amber Coffee.</p>
             </div>
 
             {loading ? (
@@ -94,13 +100,14 @@ export default function AdminDashboard() {
                         value={`RM ${stats.todaySales.toFixed(2)}`} 
                         icon={DollarSign} 
                         color="bg-emerald-500" 
+                        sub="Paid orders only"
                     />
                     <StatCard 
-                        title="Active Orders" 
+                        title="Active Queue" 
                         value={stats.activeOrders} 
                         icon={ShoppingBag} 
                         color="bg-orange-500" 
-                        sub="To be prepared/delivered"
+                        sub="Paid & Pending Delivery"
                     />
                     <StatCard 
                         title="Trips Today" 
@@ -109,16 +116,16 @@ export default function AdminDashboard() {
                         color="bg-blue-500" 
                     />
                     <StatCard 
-                        title="Total Orders" 
+                        title="Today Orders" 
                         value={stats.totalOrders} 
                         icon={TrendingUp} 
                         color="bg-purple-500" 
-                        sub="All time"
+                        sub="Total paid orders today"
                     />
                 </div>
             )}
 
-            {/* Quick Actions / Recent Activity Placeholder */}
+            {/* Quick Actions */}
             <div className="">
                 <div className="bg-white p-6 rounded-3xl shadow-sm border border-stone-100">
                     <h3 className="font-bold text-stone-800 mb-4">Quick Actions</h3>

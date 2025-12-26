@@ -119,7 +119,7 @@ export default function KitchenBoard() {
                         <span className="text-stone-700 text-sm">{item.name}</span>
                     </div>
                 </div>
-                {item.remark && <p className="mt-1 text-red-600 font-bold text-xs bg-red-50 p-1 px-2 rounded inline-block">⚠️ {item.remark}</p>}
+                {item.remark && <p className="mt-1 text-red-600 font-bold text-xs bg-red-50 p-1 px-2 rounded inline-block"> {item.remark}</p>}
             </div>
         ))}
       </div>

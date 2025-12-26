@@ -2,7 +2,7 @@
   "projects": {
     "default": "amber-coffee-2f671",
     "dev": "amber-coffee-2f671",
-    "prod": "amber-coffee-8b081"
+    "prod": "ambercoffeesystem"
   },
   "targets": {},
   "etags": {}

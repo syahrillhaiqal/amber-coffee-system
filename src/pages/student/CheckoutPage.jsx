@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { ArrowLeft, MapPin, Loader2, Truck } from "lucide-react";
-import { collection, addDoc, doc, getDoc, query, where, getDocs } from "firebase/firestore"; // Added getDoc, doc
+import { ArrowLeft, MapPin, Loader2, Truck, Mail } from "lucide-react"; // Added Mail icon
+import { collection, addDoc, doc, getDoc, query, where, getDocs } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 import axios from "axios";
 
@@ -12,9 +12,12 @@ export default function CheckoutPage({ clearCart }) {
     const { cart, subTotal, protectionFee, protectionType, total, tripInfo } = location.state || {}; 
 
     const [loading, setLoading] = useState(false);
+    
+    // 1. UPDATE STATE: Added 'email'
     const [formData, setFormData] = useState({
         name: "",
         phone: "",
+        email: "", // <--- New Field
         pickupPoint: "Alpha",
         address: "",
     });
@@ -23,6 +26,10 @@ export default function CheckoutPage({ clearCart }) {
 
     const isValidPhone = (phone) => {
         return /^[0-9]{9,15}$/.test(phone);
+    };
+
+    const isValidEmail = (email) => {
+        return /\S+@\S+\.\S+/.test(email); // Basic email check
     };
 
     const generateOrderId = () => {
@@ -34,15 +41,12 @@ export default function CheckoutPage({ clearCart }) {
         return result;
     };
 
-    // 1. Calculate Cups in Cart
     const cartCups = cart ? cart.reduce((sum, item) => sum + item.quantity, 0) : 0;
 
-    // 2. Updated Validation Function
     const checkTripValidity = async () => {
         if (!tripInfo?.tripId) return false;
 
         try {
-            // Fetch Trip Data
             const tripRef = doc(db, "delivery_slots", tripInfo.tripId);
             const tripSnap = await getDoc(tripRef);
 
@@ -55,22 +59,18 @@ export default function CheckoutPage({ clearCart }) {
             const now = new Date();
             const cutoff = new Date(tripData.cutoffTime);
 
-            // Check Deadline
             if (now >= cutoff) {
                 alert(`Ordering for this trip closed at ${cutoff.toLocaleTimeString()}.`);
                 navigate('/trip'); 
                 return false;
             }
 
-            // --- NEW: Check Capacity ---
-            // Fetch current orders to count filled cups
             const q = query(collection(db, "orders"), where("slotId", "==", tripInfo.tripId));
             const ordersSnap = await getDocs(q);
             
             let currentFilledCups = 0;
             ordersSnap.forEach(doc => {
                 const data = doc.data();
-                // Only count PAID orders
                 if (data.status !== 'CANCELLED' && data.status !== 'PENDING_PAYMENT') {
                     const orderCupCount = data.items.reduce((s, i) => s + i.quantity, 0);
                     currentFilledCups += orderCupCount;
@@ -80,7 +80,7 @@ export default function CheckoutPage({ clearCart }) {
             const availableSlots = tripData.maxCapacity - currentFilledCups;
 
             if (cartCups > availableSlots) {
-                alert(`Sorry! This trip is almost full. Only ${availableSlots} cups remaining. Your order has ${cartCups} cups.`);
+                alert(`Sorry! This trip is almost full. Only ${availableSlots} cups remaining.`);
                 return false;
             }
 
@@ -93,27 +93,30 @@ export default function CheckoutPage({ clearCart }) {
     };
 
     const handlePayment = async () => {
-        if (!formData.name || !formData.phone) return alert("Please fill in your Name and Phone Number.");
+        // 2. UPDATE VALIDATION: Check for Email
+        if (!formData.name || !formData.phone || !formData.email) return alert("Please fill in Name, Phone, and Email.");
         if (!isValidPhone(formData.phone)) return alert("Please enter a valid phone number.");
+        if (!isValidEmail(formData.email)) return alert("Please enter a valid email address.");
         if (formData.pickupPoint === "NR" && !formData.address) return alert("Please enter your full address for NR delivery.");
 
         setLoading(true);
 
-        // 1. VALIDATE TRIP BEFORE PROCEEDING
         const isValid = await checkTripValidity();
         if (!isValid) {
             setLoading(false);
-            return; // Stop checkout
+            return; 
         }
 
         try {
             const shortId = generateOrderId();
             const FUNCTION_URL = import.meta.env.VITE_PAYMENT_FUNCTION_URL;
 
+            // 3. SEND EMAIL TO BACKEND
             const response = await axios.post(FUNCTION_URL, {
                 orderId: shortId,
                 customerName: formData.name,
                 customerPhone: formData.phone,
+                customerEmail: formData.email, // <--- Sending to Backend
                 totalAmount: finalTotal,
                 description: `Coffee Order for ${tripInfo?.time || 'Trip'}`
             });
@@ -127,6 +130,7 @@ export default function CheckoutPage({ clearCart }) {
                 tripTime: tripInfo?.time || "unknown", 
                 customerName: formData.name,
                 customerPhone: formData.phone,
+                customerEmail: formData.email, // <--- Save to Firestore too
                 pickupPoint: formData.pickupPoint,
                 address: formData.address || "", 
                 items: cart,
@@ -162,8 +166,6 @@ export default function CheckoutPage({ clearCart }) {
 
     return (
        <div className="min-h-screen bg-stone-100 pb-24 font-sans">
-            {/* ... Rest of UI (unchanged) ... */}
-            {/* Make sure to paste the full return statement from previous implementation here */}
             {/* Header */}
             <div className="bg-white p-4 shadow-sm flex items-center gap-4 sticky top-0 z-10">
                 <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-full">
@@ -187,23 +189,44 @@ export default function CheckoutPage({ clearCart }) {
                         <span className="bg-primary text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">1</span>
                         Student Details
                     </h2>
+                    
+                    {/* Name Input */}
                     <input 
                         placeholder="Name on Cup (e.g. Ali)" 
-                        className="w-full p-3 bg-stone-100  rounded-xl border-none focus:ring-2 focus:ring-primary/20 transition-all"
+                        className="w-full p-3 bg-stone-100 rounded-xl border-none focus:ring-2 focus:ring-primary/20 transition-all"
                         value={formData.name}
                         onChange={e => setFormData({...formData, name: e.target.value})}
                     />
+
+                    {/* Phone Input */}
                     <input 
                         type="tel"
                         inputMode="numeric"
                         placeholder="WhatsApp Number (e.g. 0123456789)" 
-                        className="w-full p-3 bg-stone-100  rounded-xl border-none focus:ring-2 focus:ring-primary/20 transition-all"
+                        className="w-full p-3 bg-stone-100 rounded-xl border-none focus:ring-2 focus:ring-primary/20 transition-all"
                         value={formData.phone}
                         onChange={e => setFormData({...formData, phone: e.target.value.replace(/\D/g, '')})}
                     />
+
+                    {/* NEW: Email Input */}
+                    <div>
+                        <div className="relative">
+                            <Mail className="absolute left-3 top-3.5 text-gray-400" size={18}/>
+                            <input 
+                                type="email"
+                                placeholder="Email (e.g. ali@gmail.com)" 
+                                className="w-full pl-10 p-3 bg-stone-100 rounded-xl border-none focus:ring-2 focus:ring-primary/20 transition-all"
+                                value={formData.email}
+                                onChange={e => setFormData({...formData, email: e.target.value})}
+                            />
+                        </div>
+                        <p className="text-[10px] text-gray-400 mt-1 pl-1">
+                            We will send the payment receipt here.
+                        </p>
+                    </div>
                 </div>
 
-                {/* 2. Delivery Location */}
+                {/* 2. Delivery Location (Unchanged) */}
                 <div className="bg-white p-5 rounded-3xl shadow-sm border border-stone-100 space-y-4">
                     <h2 className="font-bold text-stone-800 flex items-center gap-2">
                         <span className="bg-primary text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">2</span>
@@ -225,7 +248,7 @@ export default function CheckoutPage({ clearCart }) {
                     {formData.pickupPoint === "NR" && (
                         <textarea 
                             placeholder="Full Address (House No, Street...)"
-                            className="w-full p-3 bg-orange-50 rounded-xl border border-orange-100 focus:ring-2 focus:ring-orange-200 transition-all text-base"
+                            className="w-full p-3 bg-orange-50 rounded-xl border border-orange-100 focus:ring-2 focus:ring-orange-200 transition-all text-sm"
                             rows="2"
                             value={formData.address}
                             onChange={e => setFormData({...formData, address: e.target.value})}
@@ -233,7 +256,7 @@ export default function CheckoutPage({ clearCart }) {
                     )}
                 </div>
 
-                {/* Summary */}
+                {/* Summary (Unchanged) */}
                 <div className="space-y-2 pt-2">
                     <div className="flex justify-between text-sm text-gray-500 px-2">
                         <span>Items Subtotal</span>

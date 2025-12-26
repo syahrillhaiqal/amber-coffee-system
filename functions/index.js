@@ -21,14 +21,15 @@ exports.createPayment = onRequest(async (req, res) => {
     if (req.method !== "POST") return res.status(405).send("Method Not Allowed");
 
     try {
-      const { orderId, customerName, customerPhone, totalAmount, description } = req.body;
+      // 1. RECEIVE EMAIL FROM FRONTEND
+      const { orderId, customerName, customerPhone, customerEmail, totalAmount, description } = req.body;
 
       // DYNAMICALLY BUILD THE CALLBACK URL
       const projectId = getProjectId();
       const region = "us-central1"; 
       const callbackUrl = `https://${region}-${projectId}.cloudfunctions.net/paymentCallback`;
 
-      console.log(`🚀 Creating Bill. Callback will be: ${callbackUrl}`);
+      console.log(`🚀 Creating Bill for ${customerName} (${customerEmail}).`);
 
       const amountInCents = Math.round(totalAmount * 100);
 
@@ -44,7 +45,10 @@ exports.createPayment = onRequest(async (req, res) => {
         billCallbackUrl: callbackUrl,
         billExternalReferenceNo: orderId,
         billTo: customerName || "Student",
-        billEmail: "syahrilhaiqal5@gmail.com",
+        
+        // 2. USE CUSTOMER EMAIL (Fall back to admin if empty for some reason)
+        billEmail: customerEmail || "ambercoffee.sys@gmail.com", 
+        
         billPhone: customerPhone || "0123456789",
         billSplitPayment: 0,
         billPaymentChannel: "0",
@@ -58,9 +62,13 @@ exports.createPayment = onRequest(async (req, res) => {
       const data = response.data;
 
       if (Array.isArray(data) && data.length > 0 && data[0].BillCode) {
+        // Fix for dynamic URL redirect
+        const isDev = TOYYIBPAY_URL.includes('dev.toyyibpay.com');
+        const paymentBaseUrl = isDev ? 'https://dev.toyyibpay.com' : 'https://toyyibpay.com';
+
         return res.status(200).json({ 
             billCode: data[0].BillCode,
-            paymentUrl: `https://dev.toyyibpay.com/${data[0].BillCode}`
+            paymentUrl: `${paymentBaseUrl}/${data[0].BillCode}` 
         });
       } else {
         console.error("❌ [TOYYIBPAY REJECTED]:", data);

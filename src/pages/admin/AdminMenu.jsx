@@ -1,5 +1,14 @@
 import { useState, useEffect } from "react";
-import { Plus, Edit2, Trash2, Image as ImageIcon, Loader2, X, CheckSquare, Square } from "lucide-react";
+import {
+    Plus,
+    Edit2,
+    Trash2,
+    Image as ImageIcon,
+    Loader2,
+    X,
+    CheckSquare,
+    Square,
+} from "lucide-react";
 import {
     collection,
     addDoc,
@@ -11,10 +20,16 @@ import {
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage } from "../../lib/firebase";
 
-const CATEGORIES = ["Coffee", "Matcha", "Chocolate", "Refresher", "Pastry", "Food"];
+const CATEGORIES = [
+    "Coffee",
+    "Matcha",
+    "Chocolate",
+    "Refresher",
+    "Pastry",
+    "Food",
+];
 
 export default function AdminMenu() {
-
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -53,6 +68,14 @@ export default function AdminMenu() {
         const file = e.target.files[0];
 
         if (file) {
+            if (file.size > 2 * 1024 * 1024) {
+                alert(
+                    "File too large! Please upload an image smaller than 2MB."
+                );
+                e.target.value = ""; // Clear the input
+                return;
+            }
+
             setFormData({ ...formData, image: file });
             setPreviewUrl(URL.createObjectURL(file));
         }
@@ -81,8 +104,8 @@ export default function AdminMenu() {
                 name: formData.name,
                 price: parseFloat(formData.price),
                 desc: formData.desc,
-                category: formData.category, 
-                isRecommended: formData.isRecommended, 
+                category: formData.category,
+                isRecommended: formData.isRecommended,
                 image: imageUrl,
                 isAvailable: true,
             };
@@ -129,7 +152,14 @@ export default function AdminMenu() {
 
     const resetForm = () => {
         setEditingId(null);
-        setFormData({ name: "", price: "", desc: "", category: "Coffee", isRecommended: false, image: null });
+        setFormData({
+            name: "",
+            price: "",
+            desc: "",
+            category: "Coffee",
+            isRecommended: false,
+            image: null,
+        });
         setPreviewUrl("");
     };
 
@@ -221,7 +251,7 @@ export default function AdminMenu() {
 
                         <div className="space-y-3">
                             {/* Image Upload */}
-                            <div className="border-2 border-dashed border-gray-300 rounded-xl p-4 flex flex-col items-center justify-center text-gray-400 relative overflow-hidden h-40">
+                            <div className="border-2 border-dashed border-gray-300 rounded-xl p-4 flex flex-col items-center justify-center text-gray-400 relative overflow-hidden h-40 group hover:border-primary transition-colors">
                                 {previewUrl ? (
                                     <img
                                         src={previewUrl}
@@ -230,11 +260,15 @@ export default function AdminMenu() {
                                 ) : (
                                     <>
                                         <ImageIcon size={32} />
-                                        <span className="text-xs mt-2">
+                                        <span className="text-xs mt-2 font-medium">
                                             Click to Upload Image
+                                        </span>
+                                        <span className="text-[10px] text-orange-500 mt-1 bg-orange-50 px-2 py-0.5 rounded-full">
+                                            Max size: 2MB
                                         </span>
                                     </>
                                 )}
+
                                 <input
                                     type="file"
                                     onChange={handleImageChange}
@@ -275,25 +309,44 @@ export default function AdminMenu() {
                             </div>
 
                             <div>
-                                <label className="text-xs font-bold text-gray-500 uppercase ml-1">Category</label>
-                                <select 
+                                <label className="text-xs font-bold text-gray-500 uppercase ml-1">
+                                    Category
+                                </label>
+                                <select
                                     value={formData.category}
-                                    onChange={e => setFormData({...formData, category: e.target.value})}
+                                    onChange={(e) =>
+                                        setFormData({
+                                            ...formData,
+                                            category: e.target.value,
+                                        })
+                                    }
                                     className="w-full p-3 bg-gray-50 rounded-xl border focus:border-primary outline-none"
                                 >
-                                    {CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                                    {CATEGORIES.map((cat) => (
+                                        <option key={cat} value={cat}>
+                                            {cat}
+                                        </option>
+                                    ))}
                                 </select>
                             </div>
 
-                            <div 
-                                onClick={() => setFormData({...formData, isRecommended: !formData.isRecommended})}
+                            <div
+                                onClick={() =>
+                                    setFormData({
+                                        ...formData,
+                                        isRecommended: !formData.isRecommended,
+                                    })
+                                }
                                 className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl cursor-pointer hover:bg-gray-100"
                             >
-                                {formData.isRecommended 
-                                    ? <CheckSquare className="text-primary" /> 
-                                    : <Square className="text-gray-400" />
-                                }
-                                <span className="font-bold text-gray-700">Set as Recommended</span>
+                                {formData.isRecommended ? (
+                                    <CheckSquare className="text-primary" />
+                                ) : (
+                                    <Square className="text-gray-400" />
+                                )}
+                                <span className="font-bold text-gray-700">
+                                    Set as Recommended
+                                </span>
                             </div>
 
                             <textarea
