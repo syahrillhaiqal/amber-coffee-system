@@ -155,7 +155,7 @@ export default function CheckoutPage({ clearCart }) {
             window.location.href = paymentUrl; 
         } catch (error) {
             console.error("Payment Error:", error);
-            alert("Payment gateway failed. Please try again.");
+            alert("Payment gateway failed. Please make sure your details are correct.");
             setLoading(false);
         }
     };

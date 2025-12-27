@@ -59,6 +59,7 @@ export default function KitchenBoard() {
                 id: doc.id,
                 ...doc.data(),
             }));
+            ordersData.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
             setOrders(ordersData);
             setLoading(false);
         });
@@ -214,32 +215,46 @@ export default function KitchenBoard() {
                                     {item.quantity}x
                                 </span>
                                 <div>
-                                    <span className="text-stone-700 text-sm block">
-                                        {item.name}
-                                    </span>
-
-                                    {/* --- NEW: Show Sugar Level --- */}
-                                    {item.sugarLevel && (
-                                        <span className="text-[10px] bg-green-100 text-green-700 font-bold px-1.5 py-0.5 rounded mr-1">
-                                            {item.sugarLevel}
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <span className="text-stone-700 text-sm font-bold">
+                                            {item.name}
                                         </span>
-                                    )}
 
-                                    {/* Show Addon */}
-                                    {item.addon && (
-                                        <span className="text-[10px] bg-orange-100 text-orange-700 font-bold px-1.5 py-0.5 rounded">
-                                            +{item.addon}
+                                        {/* --- NEW: PROTECTION BADGE --- */}
+                                        <span
+                                            className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase border ${
+                                                item.protection === "premium"
+                                                    ? "bg-purple-50 text-purple-700 border-purple-200"
+                                                    : "bg-blue-50 text-blue-700 border-blue-200"
+                                            }`}
+                                        >
+                                            {item.protection || "Basic"}
                                         </span>
+                                    </div>
+
+                                    <div className="flex gap-1 flex-wrap mt-0.5">
+                                        {/* Sugar Level */}
+                                        {item.sugarLevel && (
+                                            <span className="text-[10px] bg-green-100 text-green-700 font-bold px-1.5 py-0.5 rounded">
+                                                {item.sugarLevel}
+                                            </span>
+                                        )}
+                                        {/* Addon */}
+                                        {item.addon && (
+                                            <span className="text-[10px] bg-orange-100 text-orange-700 font-bold px-1.5 py-0.5 rounded">
+                                                +{item.addon}
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {item.remark && (
+                                        <p className="mt-1 text-red-600 font-bold text-xs bg-red-50 p-1 px-2 rounded inline-block">
+                                            {item.remark}
+                                        </p>
                                     )}
                                 </div>
                             </div>
                         </div>
-                        {item.remark && (
-                            <p className="mt-1 text-red-600 font-bold text-xs bg-red-50 p-1 px-2 rounded inline-block">
-                                {" "}
-                                {item.remark}
-                            </p>
-                        )}
                     </div>
                 ))}
             </div>
@@ -286,7 +301,7 @@ export default function KitchenBoard() {
                                 <>
                                     <Clock size={12} className="text-white" />
                                     <span className="text-white">
-                                        Slot{" "}
+                                        Trip{" "}
                                         {formatTripTime(slotInfo.deliveryTime)}
                                     </span>
                                 </>
@@ -627,75 +642,111 @@ export default function KitchenBoard() {
 
             {/* --- UPDATED ORDER DETAIL MODAL --- */}
             {selectedOrder && (
-                <div 
-                    className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in" 
+                <div
+                    className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in"
                     onClick={() => setSelectedOrder(null)}
                 >
                     {/* 1. Added max-h-[90dvh] and flex flex-col */}
-                    <div 
-                        className="bg-white w-full max-w-lg rounded-2xl overflow-hidden shadow-2xl animate-scale-up flex flex-col max-h-[90dvh]" 
-                        onClick={e => e.stopPropagation()}
+                    <div
+                        className="bg-white w-full max-w-lg rounded-2xl overflow-hidden shadow-2xl animate-scale-up flex flex-col max-h-[90dvh]"
+                        onClick={(e) => e.stopPropagation()}
                     >
-                        
                         {/* Header (Fixed) */}
                         <div className="bg-stone-100 p-4 border-b flex justify-between items-center shrink-0">
                             <div>
-                                <h2 className="text-xl font-bold text-stone-800">Order #{selectedOrder.orderId}</h2>
-                                <p className="text-stone-500 text-xs font-bold uppercase">{selectedOrder.status}</p>
+                                <h2 className="text-xl font-bold text-stone-800">
+                                    Order #{selectedOrder.orderId}
+                                </h2>
+                                <p className="text-stone-500 text-xs font-bold uppercase">
+                                    {selectedOrder.status}
+                                </p>
                             </div>
-                            <button onClick={() => setSelectedOrder(null)} className="p-2 bg-stone-400 border rounded-full hover:bg-stone-500 text-white"><X size={20}/></button>
+                            <button
+                                onClick={() => setSelectedOrder(null)}
+                                className="p-2 bg-stone-400 border rounded-full hover:bg-stone-500 text-white"
+                            >
+                                <X size={20} />
+                            </button>
                         </div>
-                        
+
                         {/* Content Area (Scrollable) */}
                         {/* 2. Added flex-1 overflow-y-auto */}
                         <div className="p-6 space-y-6 text-stone-900 flex-1 overflow-y-auto overscroll-contain">
-                            
                             {/* Customer Details */}
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="bg-stone-50 p-4 rounded-xl border border-stone-100">
-                                    <p className="text-xs font-bold text-stone-400 uppercase mb-1">Customer</p>
-                                    <p className="text-lg font-bold text-stone-800">{selectedOrder.customerName}</p>
-                                    <a href={`tel:${selectedOrder.customerPhone}`} className="text-blue-600 font-bold text-sm hover:underline">{selectedOrder.customerPhone}</a>
+                                    <p className="text-xs font-bold text-stone-400 uppercase mb-1">
+                                        Customer
+                                    </p>
+                                    <p className="text-lg font-bold text-stone-800">
+                                        {selectedOrder.customerName}
+                                    </p>
+                                    <a
+                                        href={`tel:${selectedOrder.customerPhone}`}
+                                        className="text-blue-600 font-bold text-sm hover:underline"
+                                    >
+                                        {selectedOrder.customerPhone}
+                                    </a>
                                 </div>
                                 <div className="bg-stone-50 p-4 rounded-xl border border-stone-100">
-                                    <p className="text-xs font-bold text-stone-400 uppercase mb-1">Location</p>
-                                    <p className="text-lg font-bold text-primary">{selectedOrder.pickupPoint}</p>
-                                    {selectedOrder.address && <p className="text-xs text-stone-500 mt-1 leading-tight">{selectedOrder.address}</p>}
+                                    <p className="text-xs font-bold text-stone-400 uppercase mb-1">
+                                        Location
+                                    </p>
+                                    <p className="text-lg font-bold text-primary">
+                                        {selectedOrder.pickupPoint}
+                                    </p>
+                                    {selectedOrder.address && (
+                                        <p className="text-xs text-stone-500 mt-1 leading-tight">
+                                            {selectedOrder.address}
+                                        </p>
+                                    )}
                                 </div>
                             </div>
 
                             {/* Item List */}
                             <div>
-                                <p className="text-xs font-bold text-stone-400 uppercase mb-2">Order Items</p>
+                                <p className="text-xs font-bold text-stone-400 uppercase mb-2">
+                                    Order Items
+                                </p>
                                 <div className="border border-stone-200 rounded-xl overflow-hidden">
                                     {selectedOrder.items.map((item, i) => (
-                                        <div key={i} className="p-3 border-b border-stone-100 last:border-0 flex justify-between items-center bg-white">
+                                        <div
+                                            key={i}
+                                            className="p-3 border-b border-stone-100 last:border-0 flex justify-between items-center bg-white"
+                                        >
                                             <div className="flex gap-3 items-center">
-                                                <div className="bg-stone-100 h-8 w-8 rounded-lg flex items-center justify-center font-bold text-stone-600 text-sm">{item.quantity}</div>
-                                                <div>
-                                                    <div className="font-bold text-stone-800">{item.name}</div>
-                                                    
-                                                    <div className="flex gap-1 flex-wrap mt-0.5">
-                                                        {item.sugarLevel && (
-                                                            <span className="text-[10px] bg-green-100 text-green-700 font-bold px-1.5 rounded">
-                                                                {item.sugarLevel}
-                                                            </span>
-                                                        )}
-                                                        {item.addon && (
-                                                            <span className="text-[10px] bg-orange-100 text-orange-700 font-bold px-1.5 rounded">
-                                                                +{item.addon}
-                                                            </span>
-                                                        )}
-                                                    </div>
-
-                                                    {item.remark && <div className="text-xs text-red-500 italic mt-1">"{item.remark}"</div>}
-                                                </div>
+                                        <div className="bg-stone-100 h-8 w-8 rounded-lg flex items-center justify-center font-bold text-stone-600 text-sm">{item.quantity}</div>
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-bold text-stone-800">{item.name}</span>
+                                                
+                                                {/* --- NEW: PROTECTION BADGE (Modal) --- */}
+                                                <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase border ${
+                                                    item.protection === 'premium' 
+                                                    ? 'bg-purple-50 text-purple-700 border-purple-200' 
+                                                    : 'bg-blue-50 text-blue-700 border-blue-200'
+                                                }`}>
+                                                    {item.protection || 'Basic'}
+                                                </span>
                                             </div>
+
+                                            <div className="flex gap-1 flex-wrap mt-0.5">
+                                                {item.sugarLevel && <span className="text-[10px] bg-green-100 text-green-700 font-bold px-1.5 rounded">{item.sugarLevel}</span>}
+                                                {item.addon && <span className="text-[10px] bg-orange-100 text-orange-700 font-bold px-1.5 rounded">+{item.addon}</span>}
+                                            </div>
+                                            {item.remark && <div className="text-xs text-red-500 italic mt-1">"{item.remark}"</div>}
+                                        </div>
+                                    </div>
                                         </div>
                                     ))}
                                     <div className="bg-stone-50 p-3 flex justify-between items-center font-bold text-stone-800">
                                         <span>Total Paid</span>
-                                        <span>RM {selectedOrder.totalPrice?.toFixed(2)}</span>
+                                        <span>
+                                            RM{" "}
+                                            {selectedOrder.totalPrice?.toFixed(
+                                                2
+                                            )}
+                                        </span>
                                     </div>
                                 </div>
                             </div>
@@ -703,7 +754,13 @@ export default function KitchenBoard() {
 
                         {/* Footer Action (Fixed) */}
                         <div className="p-4 bg-white border-t border-stone-100 shrink-0">
-                            <button onClick={() => { deleteOrder(selectedOrder.id); setSelectedOrder(null); }} className="w-full py-3 text-red-500 font-bold border border-red-100 rounded-xl hover:bg-red-50 transition-colors">
+                            <button
+                                onClick={() => {
+                                    deleteOrder(selectedOrder.id);
+                                    setSelectedOrder(null);
+                                }}
+                                className="w-full py-3 text-red-500 font-bold border border-red-100 rounded-xl hover:bg-red-50 transition-colors"
+                            >
                                 Delete Order
                             </button>
                         </div>
