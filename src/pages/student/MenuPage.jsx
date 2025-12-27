@@ -11,7 +11,7 @@ export default function MenuPage({ addToCart, removeFromCart, cart, updateCartIt
     const navigate = useNavigate();
     
     const [tripInfo, setTripInfo] = useState(() => {
-        return location.state || JSON.parse(localStorage.getItem("currentTrip"));
+        return location.state || JSON.parse(sessionStorage.getItem("currentTrip"));
     });
 
     const tabsRef = useRef(null);

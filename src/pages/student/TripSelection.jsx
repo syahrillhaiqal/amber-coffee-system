@@ -111,7 +111,7 @@ export default function TripSelection() {
                                 state={status.active ? { tripId: trip.id, name: timeStr, time: timeStr, selectedMenuIds: trip.selectedMenuIds } : null}
                                 onClick={() => {
                                     if(status.active) {
-                                        localStorage.setItem("currentTrip", JSON.stringify({ 
+                                        sessionStorage.setItem("currentTrip", JSON.stringify({ 
                                             tripId: trip.id, 
                                             name: timeStr, 
                                             time: timeStr, 
