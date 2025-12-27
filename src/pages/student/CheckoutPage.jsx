@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { ArrowLeft, MapPin, Loader2, Truck, Mail } from "lucide-react"; // Added Mail icon
+import { ArrowLeft, MapPin, Loader2, Truck, Mail } from "lucide-react"; 
 import { collection, addDoc, doc, getDoc, query, where, getDocs } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 import axios from "axios";
@@ -9,27 +9,37 @@ export default function CheckoutPage({ clearCart }) {
     const navigate = useNavigate();
     const location = useLocation();
     
-    const { cart, subTotal, protectionFee, protectionType, total, tripInfo } = location.state || {}; 
+    // 1. GET DATA
+    const { cart, subTotal, protectionFee, protectionType, tripInfo } = location.state || {}; 
+
+    // --- FIX START: RE-CALCULATE DELIVERY FEE ---
+    // Why? To ensure it's always accurate based on the actual cart content
+    const cartCups = cart ? cart.reduce((sum, item) => sum + item.quantity, 0) : 0;
+    
+    // Logic: If cups > 1, Free. Else, RM 1.00
+    const finalDeliveryFee = cartCups > 1 ? 0 : 1.00;
+
+    // Recalculate Final Total
+    // (Subtotal + Protection + Delivery)
+    const finalTotal = (subTotal || 0) + (protectionFee || 0) + finalDeliveryFee;
+    // --- FIX END ---
 
     const [loading, setLoading] = useState(false);
     
-    // 1. UPDATE STATE: Added 'email'
     const [formData, setFormData] = useState({
         name: "",
         phone: "",
-        email: "", // <--- New Field
+        email: "", 
         pickupPoint: "Alpha",
         address: "",
     });
-
-    const finalTotal = total || 0; 
 
     const isValidPhone = (phone) => {
         return /^[0-9]{9,15}$/.test(phone);
     };
 
     const isValidEmail = (email) => {
-        return /\S+@\S+\.\S+/.test(email); // Basic email check
+        return /\S+@\S+\.\S+/.test(email); 
     };
 
     const generateOrderId = () => {
@@ -40,8 +50,6 @@ export default function CheckoutPage({ clearCart }) {
         }
         return result;
     };
-
-    const cartCups = cart ? cart.reduce((sum, item) => sum + item.quantity, 0) : 0;
 
     const checkTripValidity = async () => {
         if (!tripInfo?.tripId) return false;
@@ -93,7 +101,6 @@ export default function CheckoutPage({ clearCart }) {
     };
 
     const handlePayment = async () => {
-        // 2. UPDATE VALIDATION: Check for Email
         if (!formData.name || !formData.phone || !formData.email) return alert("Please fill in Name, Phone, and Email.");
         if (!isValidPhone(formData.phone)) return alert("Please enter a valid phone number.");
         if (!isValidEmail(formData.email)) return alert("Please enter a valid email address.");
@@ -111,12 +118,11 @@ export default function CheckoutPage({ clearCart }) {
             const shortId = generateOrderId();
             const FUNCTION_URL = import.meta.env.VITE_PAYMENT_FUNCTION_URL;
 
-            // 3. SEND EMAIL TO BACKEND
             const response = await axios.post(FUNCTION_URL, {
                 orderId: shortId,
                 customerName: formData.name,
                 customerPhone: formData.phone,
-                customerEmail: formData.email, // <--- Sending to Backend
+                customerEmail: formData.email, 
                 totalAmount: finalTotal,
                 description: `Coffee Order for ${tripInfo?.time || 'Trip'}`
             });
@@ -130,14 +136,15 @@ export default function CheckoutPage({ clearCart }) {
                 tripTime: tripInfo?.time || "unknown", 
                 customerName: formData.name,
                 customerPhone: formData.phone,
-                customerEmail: formData.email, // <--- Save to Firestore too
+                customerEmail: formData.email, 
                 pickupPoint: formData.pickupPoint,
                 address: formData.address || "", 
                 items: cart,
                 
                 subTotal: subTotal || 0,
                 protectionFee: protectionFee || 0,
-                protectionType: protectionType || "Basic", 
+                protectionType: protectionType || "Mixed",
+                deliveryFee: finalDeliveryFee, // <--- Correctly Saved
                 totalPrice: finalTotal,
                 
                 status: "PENDING_PAYMENT", 
@@ -183,22 +190,18 @@ export default function CheckoutPage({ clearCart }) {
                     </div>
                 )}
 
-                {/* 1. Student Details */}
+                {/* Student Details Form */}
                 <div className="bg-white p-5 rounded-3xl shadow-sm border border-stone-100 space-y-4">
                     <h2 className="font-bold text-stone-800 flex items-center gap-2">
                         <span className="bg-primary text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">1</span>
                         Student Details
                     </h2>
-                    
-                    {/* Name Input */}
                     <input 
                         placeholder="Name on Cup (e.g. Ali)" 
                         className="w-full p-3 bg-stone-100 rounded-xl border-none focus:ring-2 focus:ring-primary/20 transition-all"
                         value={formData.name}
                         onChange={e => setFormData({...formData, name: e.target.value})}
                     />
-
-                    {/* Phone Input */}
                     <input 
                         type="tel"
                         inputMode="numeric"
@@ -207,8 +210,6 @@ export default function CheckoutPage({ clearCart }) {
                         value={formData.phone}
                         onChange={e => setFormData({...formData, phone: e.target.value.replace(/\D/g, '')})}
                     />
-
-                    {/* NEW: Email Input */}
                     <div>
                         <div className="relative">
                             <Mail className="absolute left-3 top-3.5 text-gray-400" size={18}/>
@@ -226,7 +227,7 @@ export default function CheckoutPage({ clearCart }) {
                     </div>
                 </div>
 
-                {/* 2. Delivery Location (Unchanged) */}
+                {/* Delivery Location Form */}
                 <div className="bg-white p-5 rounded-3xl shadow-sm border border-stone-100 space-y-4">
                     <h2 className="font-bold text-stone-800 flex items-center gap-2">
                         <span className="bg-primary text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">2</span>
@@ -256,20 +257,23 @@ export default function CheckoutPage({ clearCart }) {
                     )}
                 </div>
 
-                {/* Summary (Unchanged) */}
+                {/* Summary */}
                 <div className="space-y-2 pt-2">
                     <div className="flex justify-between text-sm text-gray-500 px-2">
                         <span>Items Subtotal</span>
                         <span>RM {subTotal?.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between text-sm text-blue-600 font-medium px-2">
-                        <span>{protectionType}</span>
+                        <span>Pack. Fee (Mixed)</span>
                         <span>RM {protectionFee?.toFixed(2)}</span>
                     </div>
-                    <div className="flex justify-between text-sm text-green-600 font-bold px-2">
+                    
+                    {/* SHOW DYNAMIC DELIVERY FEE */}
+                    <div className={`flex justify-between text-sm font-bold px-2 ${finalDeliveryFee === 0 ? 'text-green-600' : 'text-orange-600'}`}>
                         <span className="flex items-center gap-1"><Truck size={14}/> Delivery Fee</span>
-                        <span>FREE</span>
+                        <span>{finalDeliveryFee === 0 ? "FREE" : `RM ${finalDeliveryFee.toFixed(2)}`}</span>
                     </div>
+
                     <div className="flex justify-between text-xl font-bold text-stone-900 bg-white p-4 rounded-xl shadow-sm border border-stone-100 mt-2">
                         <span>Total Payment</span> <span className="text-primary">RM {finalTotal?.toFixed(2)}</span>
                     </div>

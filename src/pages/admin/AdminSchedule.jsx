@@ -5,8 +5,17 @@ import { collection, getDocs, deleteDoc, doc, onSnapshot } from "firebase/firest
 import { db } from "../../lib/firebase";
 
 export default function AdminSchedule() {
+
+const getTodayDate = () => {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
     const [viewMode, setViewMode] = useState("upcoming");
-    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
+    const [selectedDate, setSelectedDate] = useState(getTodayDate());
     const [slots, setSlots] = useState([]);
     const [loading, setLoading] = useState(true);
 
@@ -212,7 +221,7 @@ export default function AdminSchedule() {
                             {/* Actions */}
                             <div className="mt-auto flex gap-2">
                                 <Link to={`/admin/kitchen/${slot.id}`} className="flex-1 py-3 bg-stone-900 text-white rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-black transition-colors">
-                                    {status.label === 'ENDED' ? 'View History' : 'Kitchen View'} 
+                                    {status.label === 'ENDED' ? 'View History' : 'Runner View'} 
                                     <ArrowRight size={16} />
                                 </Link>
                                 {slot.realCount === 0 && (

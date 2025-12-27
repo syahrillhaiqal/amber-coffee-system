@@ -163,6 +163,7 @@ export default function AdminCreateTrip() {
                             <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Max Cups</label>
                             <input 
                                 type="number" 
+                                inputMode="numeric"
                                 min="1"
                                 value={capacity} 
                                 onChange={e => setCapacity(e.target.value)} 

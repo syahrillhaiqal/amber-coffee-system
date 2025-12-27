@@ -29,15 +29,14 @@ export default function ReceiptPage() {
     };
 
     // --- DATA EXTRACTION ---
-    // Handle data coming from different sources (Direct checkout vs DB fetch)
     const itemsTotal = data.subTotal || data.totals?.subTotal || 0;
     const protectFee = data.protectionFee || data.totals?.protectionFee || 0;
-    const protectType = data.protectionType || "Basic";
     const grandTotal = data.totalPrice || data.totals?.finalTotal || 0;
+    
+    // 1. EXTRACT DELIVERY FEE (Handle legacy data that might be missing it)
+    const deliveryFee = data.deliveryFee !== undefined ? data.deliveryFee : (data.totals?.deliveryFee || 0);
 
-    // Robust Address Finding
-    const pickupPoint =
-        data.pickupPoint || data.customer?.pickupPoint || "Unknown";
+    const pickupPoint = data.pickupPoint || data.customer?.pickupPoint || "Unknown";
     const address = data.address || data.customer?.address || "";
 
     return (
@@ -62,63 +61,38 @@ export default function ReceiptPage() {
 
                 <div className="bg-stone-100 p-4 rounded-xl flex justify-between items-center border border-stone-100">
                     <div className="text-left">
-                        <p className="text-xs text-stone-400 font-bold uppercase">
-                            Order ID
-                        </p>
-                        <p className="text-xl font-mono font-bold text-stone-800 tracking-tight">
-                            {data.orderId}
-                        </p>
+                        <p className="text-xs text-stone-400 font-bold uppercase">Order ID</p>
+                        <p className="text-xl font-mono font-bold text-stone-800 tracking-tight">{data.orderId}</p>
                     </div>
                     <div className="text-right">
-                        <p className="text-xs text-stone-400 font-bold uppercase">
-                            Date
+                        <p className="text-xs text-stone-400 font-bold uppercase">Date</p>
+                        <p className="text-xs font-bold text-stone-600">
+                            {data.timestamp ? data.timestamp.split(",")[0] : new Date().toLocaleDateString()}
                         </p>
                         <p className="text-xs font-bold text-stone-600">
-                            {data.timestamp
-                                ? data.timestamp.split(",")[0]
-                                : new Date().toLocaleDateString()}
-                        </p>
-                        <p className="text-xs font-bold text-stone-600">
-                            {data.timestamp
-                                ? data.timestamp.split(",")[1]
-                                : new Date().toLocaleTimeString()}
+                            {data.timestamp ? data.timestamp.split(",")[1] : new Date().toLocaleTimeString()}
                         </p>
                     </div>
                 </div>
 
-                {/* Items */}
+                {/* Items List (Unchanged) */}
                 <div className="space-y-3 py-2 border-b border-stone-100 pb-4">
-                    {data.cart &&
-                        data.cart.map((item, i) => (
-                            <div
-                                key={i}
-                                className="flex justify-between text-sm items-start"
-                            >
-                                <div className="flex gap-2">
-                                    <span className="font-bold text-stone-800">
-                                        {item.quantity}x
+                    {data.cart && data.cart.map((item, i) => (
+                        <div key={i} className="flex justify-between text-sm items-start">
+                            <div className="flex gap-2">
+                                <span className="font-bold text-stone-800">{item.quantity}x</span>
+                                <div>
+                                    <span className="text-stone-600 block">
+                                        {item.name} 
+                                        {item.addon && <span className="text-[10px] bg-orange-100 text-orange-700 px-1 rounded font-bold ml-1">+{item.addon}</span>}
+                                        {item.sugarLevel && <span className="text-[10px] bg-green-100 text-green-700 px-1 rounded font-bold ml-1">{item.sugarLevel}</span>}
                                     </span>
-                                    <div>
-                                        <span className="text-stone-600 block">
-                                            {item.name}{" "}
-                                            {item.addon && (
-                                                <span className="text-[10px] bg-orange-100 text-orange-700 px-1 rounded font-bold">
-                                                    +{item.addon}
-                                                </span>
-                                            )}
-                                        </span>
-                                        {item.remark && (
-                                            <span className="text-[10px] text-gray-400 italic">
-                                                "{item.remark}"
-                                            </span>
-                                        )}
-                                    </div>
+                                    {item.remark && <span className="text-[10px] text-gray-400 italic">"{item.remark}"</span>}
                                 </div>
-                                <span className="font-bold text-stone-800">
-                                    RM {(item.price * item.quantity).toFixed(2)}
-                                </span>
                             </div>
-                        ))}
+                            <span className="font-bold text-stone-800">RM {(item.price * item.quantity).toFixed(2)}</span>
+                        </div>
+                    ))}
                 </div>
 
                 {/* --- FINANCIAL BREAKDOWN --- */}
@@ -128,13 +102,16 @@ export default function ReceiptPage() {
                         <span>RM {itemsTotal.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between text-xs text-stone-500">
-                        <span>{protectType} Package</span>
+                        <span>Packaging Fees</span>
                         <span>RM {protectFee.toFixed(2)}</span>
                     </div>
-                    <div className="flex justify-between text-xs text-green-600 font-bold">
+                    
+                    {/* 2. DISPLAY DYNAMIC DELIVERY FEE */}
+                    <div className={`flex justify-between text-xs font-bold ${deliveryFee === 0 ? 'text-green-600' : 'text-stone-500'}`}>
                         <span>Delivery Fee</span>
-                        <span>FREE</span>
+                        <span>{deliveryFee === 0 ? "FREE" : `RM ${deliveryFee.toFixed(2)}`}</span>
                     </div>
+
                     <div className="flex justify-between text-xl font-black text-stone-900 pt-2 border-t border-dashed border-stone-200 mt-2">
                         <span>Total Paid</span>
                         <span className="text-primary">
@@ -143,23 +120,14 @@ export default function ReceiptPage() {
                     </div>
                 </div>
 
-                {/* --- PICKUP & ADDRESS --- */}
+                {/* Pickup & Address (Unchanged) */}
                 <div className="bg-primary/5 p-4 rounded-xl text-center border border-primary/10">
-                    <p className="text-xs text-primary font-bold uppercase mb-1">
-                        Pickup Location
-                    </p>
-                    <p className="text-lg font-bold text-stone-800">
-                        {pickupPoint}
-                    </p>
-                    {/* Show Address if NR */}
+                    <p className="text-xs text-primary font-bold uppercase mb-1">Pickup Location</p>
+                    <p className="text-lg font-bold text-stone-800">{pickupPoint}</p>
                     {pickupPoint === "NR" && address && (
                         <div className="mt-2 pt-2 border-t border-primary/10">
-                            <p className="text-[10px] text-stone-400 uppercase font-bold mb-1">
-                                Delivery Address
-                            </p>
-                            <p className="text-xs text-stone-600 italic leading-relaxed">
-                                {address}
-                            </p>
+                            <p className="text-[10px] text-stone-400 uppercase font-bold mb-1">Delivery Address</p>
+                            <p className="text-xs text-stone-600 italic leading-relaxed">{address}</p>
                         </div>
                     )}
                 </div>
@@ -167,23 +135,17 @@ export default function ReceiptPage() {
                 <div className="mt-4 bg-primary/10 text-primary py-3 px-4 rounded-xl border border-primary/20">
                     <p className="text-sm font-bold flex items-center justify-center gap-2">
                         <span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
-                        Present this receipt to collect your order
+                        Keep this receipt to identify your order using Order ID during pickup
                     </p>
                 </div>
             </div>
 
-            {/* Actions */}
+            {/* Actions (Unchanged) */}
             <div className="w-full max-w-md space-y-3">
-                <button
-                    onClick={handleSaveReceipt}
-                    className="w-full flex items-center justify-center gap-2 bg-stone-900 text-white py-4 rounded-xl font-bold active:scale-95 transition-transform shadow-lg shadow-stone-200"
-                >
+                <button onClick={handleSaveReceipt} className="w-full flex items-center justify-center gap-2 bg-stone-900 text-white py-4 rounded-xl font-bold active:scale-95 transition-transform shadow-lg shadow-stone-200">
                     <Download size={20} /> Save Receipt Image
                 </button>
-                <Link
-                    to="/"
-                    className="block w-full text-center text-stone-500 py-3 text-sm font-bold hover:text-stone-800"
-                >
+                <Link to="/" className="block w-full text-center text-stone-500 py-3 text-sm font-bold hover:text-stone-800">
                     Back to Home
                 </Link>
             </div>

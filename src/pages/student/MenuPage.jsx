@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from "react";
-import { Search, ShoppingBag, Clock, Star, Flame, Loader2, X } from "lucide-react"; 
+import { Search, ShoppingBag, Star, Flame, Loader2, X, Gift, ArrowRight } from "lucide-react"; 
 import ProductModal from "../../components/ProductModal";
 import CartDrawer from "../../components/CartDrawer";
 import { useLocation, Link, useNavigate } from "react-router-dom";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 
-export default function MenuPage({ addToCart, removeFromCart, cart }) {
+export default function MenuPage({ addToCart, removeFromCart, cart, updateCartItemProtection }) {
     const location = useLocation();
     const navigate = useNavigate();
     
@@ -22,11 +22,12 @@ export default function MenuPage({ addToCart, removeFromCart, cart }) {
     const [selectedItem, setSelectedItem] = useState(null);
     const [isCartOpen, setIsCartOpen] = useState(false);
     const [activeCategory, setActiveCategory] = useState("Recommended");
+    
+    // NEW: Modal State
+    const [showUpsellModal, setShowUpsellModal] = useState(false);
 
     // Fetch Menu
     useEffect(() => {
-
-        // Safety Check: If no trip info, go back to selection
         if (!tripInfo) {
             navigate("/trip");
             return;
@@ -69,7 +70,7 @@ export default function MenuPage({ addToCart, removeFromCart, cart }) {
 
     const groupedItems = getGroupedItems();
 
-    // --- SCROLL SYNC LOGIC ---
+    // Scroll Sync
     useEffect(() => {
         const handleScroll = () => {
             const offsets = categories.map(cat => {
@@ -89,16 +90,12 @@ export default function MenuPage({ addToCart, removeFromCart, cart }) {
         return () => window.removeEventListener('scroll', handleScroll);
     }, [categories]); 
 
-    // --- AUTO SCROLL TABS LOGIC ---
+    // Auto Scroll Tabs
     useEffect(() => {
         if (activeCategory && tabsRef.current) {
             const activeTab = document.getElementById(`tab-${activeCategory}`);
             if (activeTab) {
-                activeTab.scrollIntoView({ 
-                    behavior: 'smooth', 
-                    block: 'nearest', 
-                    inline: 'center' 
-                });
+                activeTab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
             }
         }
     }, [activeCategory]);
@@ -121,40 +118,40 @@ export default function MenuPage({ addToCart, removeFromCart, cart }) {
         );
     }
 
+    const currentCups = cart.reduce((sum, item) => sum + item.quantity, 0);
+
+    const handleAddToCartWrapper = (item, qty, remark) => {
+        addToCart(item, qty, remark);
+        
+        // UPSELL LOGIC: If total becomes 1, show modal
+        if (currentCups === 0 && qty === 1) {
+            setShowUpsellModal(true);
+        }
+    };
+
     return (
         <div className="pb-24">
             <div className="sticky top-0 z-10 bg-stone-100 pb-2 shadow-sm">
                 <div className="px-4 pt-4 max-w-md mx-auto">
-                    
                     {/* Search Bar */}
                     <div className="relative mb-3">
                         <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
-                        
                         <input
                             type="text"
                             placeholder="Search..."
                             value={searchTerm}
-
                             className="w-full pl-10 pr-10 py-2 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 text-base"
-                            
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
-
                         {searchTerm && (
-                            <button 
-                                onClick={() => setSearchTerm("")}
-                                className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600 bg-white"
-                            >
+                            <button onClick={() => setSearchTerm("")} className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600 bg-white">
                                 <X size={18} />
                             </button>
                         )}
                     </div>
 
                     {/* Horizontal Categories */}
-                    <div 
-                        ref={tabsRef} 
-                        className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide"
-                    >
+                    <div ref={tabsRef} className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
                         {categories.map(cat => {
                             if (groupedItems[cat]?.length === 0) return null;
                             return (
@@ -180,7 +177,6 @@ export default function MenuPage({ addToCart, removeFromCart, cart }) {
             {/* Menu List */}
             <div className="px-4 max-w-md mx-auto space-y-8 mt-4">
                 {allItems.length === 0 ? (
-                    // Empty state
                     <div className="text-center py-20 text-stone-400">
                         <ShoppingBag size={48} className="mx-auto mb-4 opacity-20" />
                         <p>No items available for this trip.</p>
@@ -238,10 +234,8 @@ export default function MenuPage({ addToCart, removeFromCart, cart }) {
                 <ProductModal
                     item={selectedItem}
                     close={() => setSelectedItem(null)}
-                    add={(itemData, qty, remark) => {
-                        addToCart(itemData, qty, remark);
-                        setSelectedItem(null);
-                    }}
+                    add={handleAddToCartWrapper}
+                    currentCartTotal={currentCups} 
                 />
             )}
 
@@ -249,9 +243,49 @@ export default function MenuPage({ addToCart, removeFromCart, cart }) {
                 <CartDrawer
                     cart={cart}
                     close={() => setIsCartOpen(false)}
-                    removeFromCart={removeFromCart} 
+                    removeFromCart={removeFromCart}
                     tripInfo={tripInfo}
+                    updateCartItemProtection={updateCartItemProtection}
                 />
+            )}
+
+            {/* --- NEW: UPSELL POPUP MODAL --- */}
+            {showUpsellModal && (
+                <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+                    <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-scale-up text-center relative overflow-hidden">
+                        
+                        {/* Decorative background circle */}
+                        <div className="absolute -top-10 -right-10 w-32 h-32 bg-green-100 rounded-full opacity-50"></div>
+                        
+                        <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4 text-green-600">
+                            <Gift size={32} />
+                        </div>
+                        
+                        <h2 className="text-xl font-black text-gray-900 mb-2">Wait! Don't miss out.</h2>
+                        <p className="text-gray-500 mb-6 text-sm leading-relaxed">
+                            You currently have <b>1 item</b> in your cart. <br/>
+                            <span className="text-green-600 font-bold">Add 1 more to get FREE Delivery!</span>
+                        </p>
+
+                        <div className="space-y-3">
+                            <button 
+                                onClick={() => setShowUpsellModal(false)}
+                                className="w-full bg-green-600 text-white py-3.5 rounded-xl font-bold shadow-lg shadow-green-200 active:scale-95 transition-transform flex items-center justify-center gap-2"
+                            >
+                                <ShoppingBag size={18} /> Add More Items
+                            </button>
+                            <button 
+                                onClick={() => {
+                                    setShowUpsellModal(false);
+                                    setIsCartOpen(true); // Open cart if they ignore offer
+                                }}
+                                className="w-full text-gray-400 font-bold text-sm py-2 hover:text-gray-600"
+                            >
+                                No thanks, continue to payment
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );

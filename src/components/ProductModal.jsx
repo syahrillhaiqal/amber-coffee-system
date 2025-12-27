@@ -1,14 +1,14 @@
-import { useState, useRef } from 'react'; // Import useRef
+import { useState, useRef, useEffect } from 'react';
 import { X, Minus, Plus, Check } from 'lucide-react';
 
-export default function ProductModal({ item, close, add }) {
+export default function ProductModal({ item, close, add, currentCartTotal }) {
   const [quantity, setQuantity] = useState(1);
   const [remark, setRemark] = useState("");
-  
-  // Add-on State
   const [selectedAddon, setSelectedAddon] = useState(null); 
+  
+  // NEW: Matcha Sugar State
+  const [sugarLevel, setSugarLevel] = useState("Normal Sugar");
 
-  // --- FIX 1: Add a ref to the textarea to control scrolling ---
   const textareaRef = useRef(null);
 
   const ADDONS = [
@@ -25,18 +25,20 @@ export default function ProductModal({ item, close, add }) {
       }
   };
 
-  // --- FIX 2: Handle Input Focus ---
-  const handleInputFocus = () => {
-    // Wait 300ms for the keyboard to finish sliding up
+    const handleInputFocus = () => {
+    // Stage 1: Quick adjust
     setTimeout(() => {
-      if (textareaRef.current) {
-        // Scroll the textarea to the center of the viewable area
-        textareaRef.current.scrollIntoView({ 
-            behavior: 'smooth', 
-            block: 'center' 
-        });
-      }
-    }, 300);
+        if (textareaRef.current) {
+            textareaRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    }, 100);
+
+    // Stage 2: Final adjust after keyboard is fully up (400ms is safer for iOS)
+    setTimeout(() => {
+        if (textareaRef.current) {
+            textareaRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }, 400);
   };
 
   // Calculate Price
@@ -45,37 +47,32 @@ export default function ProductModal({ item, close, add }) {
   const finalItemPrice = basePrice + addonPrice;
   const totalDisplayPrice = finalItemPrice * quantity;
 
-  const handleAddToCart = () => {
+const handleAddToCart = () => {
       const itemToAdd = {
           ...item,
           price: finalItemPrice, 
-          addon: selectedAddon, 
-          originalPrice: item.price 
+          addon: selectedAddon,
+          sugarLevel: item.category === 'Matcha' ? sugarLevel : null,
+          originalPrice: item.price,
+          protection: 'basic'
       };
-      add(itemToAdd, quantity, remark);
+      
+      add(itemToAdd, quantity, remark); // Add item
+      close(); // <--- ADD THIS LINE (Closes the modal)
   };
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4 animate-fade-in">
       <div className="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl animate-slide-up flex flex-col max-h-[85dvh] relative">
         
-        {/* Scrollable Content */}
         <div className="overflow-y-auto flex-1 overscroll-contain">
-            {/* Header Image */}
             <div className="relative h-56 shrink-0">
                 <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
-                <button 
-                    onClick={close} 
-                    className="absolute top-4 right-4 bg-black/50 hover:bg-black/70 p-2 rounded-full text-white backdrop-blur-sm transition-colors z-10"
-                >
+                <button onClick={close} className="absolute top-4 right-4 bg-black/50 hover:bg-black/70 p-2 rounded-full text-white backdrop-blur-sm transition-colors z-10">
                     <X size={20} />
                 </button>
             </div>
 
-            {/* FIX 3: Added 'pb-32' (Padding Bottom) 
-               This adds extra empty space at the bottom of the scroll list.
-               When keyboard opens, we can scroll into this empty space, pushing the textarea up. 
-            */}
             <div className="p-6 pb-32">
                 <div className="flex justify-between items-start mb-2">
                     <h2 className="text-2xl font-bold text-gray-900 leading-tight">{item.name}</h2>
@@ -83,7 +80,29 @@ export default function ProductModal({ item, close, add }) {
                 </div>
                 <p className="text-gray-500 text-sm mb-6 leading-relaxed">{item.desc}</p>
 
-                {/* --- ADD-ON SECTION --- */}
+                {/* --- MATCH SUGAR OPTIONS (Free) --- */}
+                {item.category === 'Matcha' && (
+                    <div className="mb-6">
+                        <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 block">Sugar Level</label>
+                        <div className="flex gap-2">
+                            {["Normal Sugar", "No Sugar"].map((opt) => (
+                                <button
+                                    key={opt}
+                                    onClick={() => setSugarLevel(opt)}
+                                    className={`flex-1 py-2 rounded-xl text-sm font-bold border transition-all ${
+                                        sugarLevel === opt 
+                                        ? "border-green-500 bg-green-50 text-green-700" 
+                                        : "border-gray-200 text-gray-600"
+                                    }`}
+                                >
+                                    {opt}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* --- COFFEE ADD-ONS --- */}
                 {item.category === 'Coffee' && (
                     <div className="mb-6">
                         <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 block">Add-ons (+RM2)</label>
@@ -95,9 +114,7 @@ export default function ProductModal({ item, close, add }) {
                                         key={addon.name}
                                         onClick={() => handleAddonToggle(addon.name)}
                                         className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all flex items-center gap-2 ${
-                                            isSelected 
-                                            ? "border-primary bg-orange-50 text-primary" 
-                                            : "border-gray-200 text-gray-600 hover:border-gray-300"
+                                            isSelected ? "border-primary bg-orange-50 text-primary" : "border-gray-200 text-gray-600 hover:border-gray-300"
                                         }`}
                                     >
                                         {addon.name}
@@ -111,10 +128,10 @@ export default function ProductModal({ item, close, add }) {
 
                 {/* Remarks */}
                 <div>
-                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-2">Special Requests</label>
+                    <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-2">Special Requests</label>
                     <textarea 
-                        ref={textareaRef} // Attach Ref
-                        onFocus={handleInputFocus} // Trigger scroll on focus
+                        ref={textareaRef} 
+                        onFocus={handleInputFocus} 
                         className="w-full p-3 bg-gray-100 rounded-xl border-none focus:ring-2 focus:ring-primary/20 text-sm resize-none"
                         placeholder="e.g. Less sugar, Extra ice..."
                         rows="2"

@@ -24,6 +24,14 @@ function App() {
         return saved ? JSON.parse(saved) : [];
     });
 
+    const updateCartItemProtection = (cartId, newProtectionType) => {
+    setCart((prevCart) => 
+      prevCart.map(item => 
+        item.cartId === cartId ? { ...item, protection: newProtectionType } : item
+      )
+    );
+  };
+
     useEffect(() => {
         sessionStorage.setItem("amberCart", JSON.stringify(cart));
     }, [cart]);
@@ -66,6 +74,7 @@ function App() {
                                     addToCart={addToCart} 
                                     removeFromCart={removeFromCart} 
                                     cart={cart} 
+                                    updateCartItemProtection={updateCartItemProtection}
                                 />
                             }
                         />

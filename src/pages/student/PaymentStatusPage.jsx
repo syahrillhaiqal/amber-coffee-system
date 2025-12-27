@@ -52,7 +52,8 @@ export default function PaymentStatusPage({ clearCart }) {
                                     finalTotal: orderData.totalPrice, 
                                     subTotal: orderData.subTotal, 
                                     protectionFee: orderData.protectionFee,
-                                    protectionType: orderData.protectionType || "Basic"
+                                    protectionType: orderData.protectionType || "Basic",
+                                    deliveryFee: orderData.deliveryFee || 0
                                 } 
                             } 
                         });
