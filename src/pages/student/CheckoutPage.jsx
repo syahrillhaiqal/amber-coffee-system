@@ -243,7 +243,7 @@ export default function CheckoutPage({ clearCart }) {
                             <option value="Alpha">Alpha (Front of Alpha 9)</option>
                             <option value="Beta">Beta (Front of Beta 12)</option>
                             <option value="Gamma">Gamma (Gamma Cafe)</option>
-                            <option value="NR">NR (Non-Resident)</option>
+                            {/* <option value="NR">NR (Non-Resident)</option> */}
                         </select>
                     </div>
                     {formData.pickupPoint === "NR" && (
