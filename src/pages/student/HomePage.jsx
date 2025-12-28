@@ -1,11 +1,12 @@
 import { Link } from 'react-router-dom';
+import mainPage from "../../assets/mainpage.jpeg";
 
 export default function HomePage() {
   return (
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] px-6 text-center bg-secondary">
       <div className="w-full max-w-md space-y-6">
         <img 
-          src="https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=600&q=80" 
+          src={mainPage}
           alt="Coffee" 
           className="w-full h-64 object-cover rounded-2xl shadow-lg rotate-1"
         />

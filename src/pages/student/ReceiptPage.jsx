@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import { useLocation, Link } from "react-router-dom";
-import { Download } from "lucide-react";
+import { Download, MessageCircle } from "lucide-react"; // Added MessageCircle
 import { domToPng } from "modern-screenshot";
 import logo from "../../assets/amber-coffee.png";
 
@@ -82,12 +82,24 @@ export default function ReceiptPage() {
                             <div className="flex gap-2">
                                 <span className="font-bold text-stone-800">{item.quantity}x</span>
                                 <div>
-                                    <span className="text-stone-600 block">
-                                        {item.name} 
-                                        {item.addon && <span className="text-[10px] bg-orange-100 text-orange-700 px-1 rounded font-bold ml-1">+{item.addon}</span>}
-                                        {item.sugarLevel && <span className="text-[10px] bg-green-100 text-green-700 px-1 rounded font-bold ml-1">{item.sugarLevel}</span>}
-                                    </span>
-                                    {item.remark && <span className="text-[10px] text-gray-400 italic">"{item.remark}"</span>}
+                                    <div className="flex items-center gap-1 flex-wrap">
+                                        <span className="text-stone-600 block font-bold">{item.name}</span>
+                                        {/* PROTECTION BADGE */}
+                                        <span className={`text-[9px] px-1 rounded border ${
+                                            item.protection === 'premium' 
+                                            ? 'text-purple-600 border-purple-200 bg-purple-50' 
+                                            : 'text-blue-600 border-blue-200 bg-blue-50'
+                                        }`}>
+                                            {item.protection === 'premium' ? 'PREM' : 'BSC'}
+                                        </span>
+                                    </div>
+                                    
+                                    <div className="flex flex-wrap gap-1 mt-0.5">
+                                        {item.addon && <span className="text-[10px] text-orange-600 font-bold">+{item.addon}</span>}
+                                        {item.sugarLevel && <span className="text-[10px] text-green-600 font-bold">{item.sugarLevel}</span>}
+                                    </div>
+                                    
+                                    {item.remark && <span className="text-[10px] text-gray-400 italic block">"{item.remark}"</span>}
                                 </div>
                             </div>
                             <span className="font-bold text-stone-800">RM {(item.price * item.quantity).toFixed(2)}</span>
@@ -102,7 +114,7 @@ export default function ReceiptPage() {
                         <span>RM {itemsTotal.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between text-xs text-stone-500">
-                        <span>Packaging Fees</span>
+                        <span>Protection Fee</span>
                         <span>RM {protectFee.toFixed(2)}</span>
                     </div>
                     
@@ -132,10 +144,29 @@ export default function ReceiptPage() {
                     )}
                 </div>
 
-                <div className="mt-4 bg-primary/10 text-primary py-3 px-4 rounded-xl border border-primary/20">
-                    <p className="text-sm font-bold flex items-center justify-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
-                        Keep this receipt to identify your order using Order ID during pickup
+                {/* --- NEW: SUPPORT CONTACT --- */}
+                <div className="mt-4 pt-4 border-t border-stone-300 text-center">
+                    <p className="text-[12px] text-stone-400 font-medium mb-1">Need to contact the runner?</p>
+                    <a 
+                        href="https://wa.me/601164971911" 
+                        target="_blank" 
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-2 text-xs font-bold text-stone-600 hover:text-green-600 transition-colors bg-stone-100 px-4 py-2 rounded-full"
+                    >
+                        <MessageCircle size={14} className="text-green-500"/>
+                        +60 11-6497 1911 (Amber Runner)
+                    </a>
+                </div>
+
+                <div className="mt-2 bg-primary/10 text-primary py-3 px-4 rounded-xl border border-primary/20">
+                    <p className="text-sm font-bold flex flex-col items-center justify-center gap-1 text-center leading-snug">
+                        <span className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+                            Save this receipt!
+                        </span>
+                        <span className="font-normal text-xs text-stone-600">
+                            Match the <b>Order ID</b> to find your cup at the pickup point.
+                        </span>
                     </p>
                 </div>
             </div>

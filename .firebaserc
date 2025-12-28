@@ -1,6 +1,6 @@
 {
   "projects": {
-    "default": "amber-coffee-2f671",
+    "default": "ambercoffeesystem",
     "dev": "amber-coffee-2f671",
     "prod": "ambercoffeesystem"
   },
