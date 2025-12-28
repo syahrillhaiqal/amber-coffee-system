@@ -264,7 +264,7 @@ export default function CheckoutPage({ clearCart }) {
                         <span>RM {subTotal?.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between text-sm text-blue-600 font-medium px-2">
-                        <span>Packaging Fees</span>
+                        <span>Protection Fee</span>
                         <span>RM {protectionFee?.toFixed(2)}</span>
                     </div>
                     
