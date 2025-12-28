@@ -237,7 +237,7 @@ const getTodayDate = () => {
                 {slots.length === 0 && (
                     <div className="col-span-full py-20 text-center text-stone-400">
                         <Clock size={48} className="mx-auto mb-4 opacity-20" />
-                        <p>No trips found for this criteria.</p>
+                        <p>No trips found for this date.</p>
                     </div>
                 )}
             </div>
