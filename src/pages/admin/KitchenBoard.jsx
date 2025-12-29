@@ -55,10 +55,15 @@ export default function KitchenBoard() {
             where("slotId", "==", slotId)
         );
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            const ordersData = snapshot.docs.map((doc) => ({
+            let ordersData = snapshot.docs.map((doc) => ({
                 id: doc.id,
                 ...doc.data(),
             }));
+            ordersData = ordersData.filter(order => 
+                order.status !== 'PENDING_PAYMENT' && 
+                order.status !== 'CANCELLED'
+            );
+            
             ordersData.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
             setOrders(ordersData);
             setLoading(false);
