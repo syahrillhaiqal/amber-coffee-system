@@ -16,52 +16,54 @@ import RequireAuth from "./components/RequireAuth";
 import AdminCreateTrip from "./pages/admin/AdminCreateTrip";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import PaymentStatusPage from "./pages/student/PaymentStatusPage";
+import AnalyticsTracker from "./AnalyticsTracker";
 
 function App() {
-
     const [cart, setCart] = useState(() => {
         const saved = sessionStorage.getItem("amberCart");
         return saved ? JSON.parse(saved) : [];
     });
 
     const updateCartItemProtection = (cartId, newProtectionType) => {
-    setCart((prevCart) => 
-      prevCart.map(item => 
-        item.cartId === cartId ? { ...item, protection: newProtectionType } : item
-      )
-    );
-  };
+        setCart((prevCart) =>
+            prevCart.map((item) =>
+                item.cartId === cartId
+                    ? { ...item, protection: newProtectionType }
+                    : item
+            )
+        );
+    };
 
     useEffect(() => {
         sessionStorage.setItem("amberCart", JSON.stringify(cart));
     }, [cart]);
 
     const addToCart = (item, quantity, remark) => {
-        const cartItem = { 
-            ...item, 
-            quantity, 
-            remark, 
-            cartId: Date.now() + Math.random() 
+        const cartItem = {
+            ...item,
+            quantity,
+            remark,
+            cartId: Date.now() + Math.random(),
         };
         setCart([...cart, cartItem]);
     };
 
     const removeFromCart = (cartId) => {
         if (window.confirm("Remove this item from cart?")) {
-            setCart(cart.filter(item => item.cartId !== cartId));
+            setCart(cart.filter((item) => item.cartId !== cartId));
         }
     };
 
     const clearCart = () => {
         setCart([]);
-        sessionStorage.removeItem("amberCart"); 
+        sessionStorage.removeItem("amberCart");
     };
 
     return (
         <BrowserRouter>
+            <AnalyticsTracker />
             <ScrollToTop />
             <div className="min-h-screen bg-stone-100 font-sans text-gray-800">
-
                 <Routes>
                     {/* --- STUDENT PAGES --- */}
                     <Route element={<StudentLayout />}>
@@ -70,24 +72,36 @@ function App() {
                         <Route
                             path="/menu"
                             element={
-                                <MenuPage 
-                                    addToCart={addToCart} 
-                                    removeFromCart={removeFromCart} 
-                                    cart={cart} 
-                                    updateCartItemProtection={updateCartItemProtection}
+                                <MenuPage
+                                    addToCart={addToCart}
+                                    removeFromCart={removeFromCart}
+                                    cart={cart}
+                                    updateCartItemProtection={
+                                        updateCartItemProtection
+                                    }
                                 />
                             }
                         />
                         <Route
-                        path="/checkout"
-                        element={<CheckoutPage cart={cart} clearCart={clearCart} />}
+                            path="/checkout"
+                            element={
+                                <CheckoutPage
+                                    cart={cart}
+                                    clearCart={clearCart}
+                                />
+                            }
                         />
-                        <Route path="/payment-status" element={<PaymentStatusPage clearCart={clearCart} />} />
+                        <Route
+                            path="/payment-status"
+                            element={
+                                <PaymentStatusPage clearCart={clearCart} />
+                            }
+                        />
                         <Route path="/receipt" element={<ReceiptPage />} />
                     </Route>
 
                     {/* --- ADMIN PAGES --- */}
-                    
+
                     {/* Admin Login */}
                     <Route path="/login" element={<AdminLogin />} />
 
@@ -95,12 +109,24 @@ function App() {
                     <Route element={<RequireAuth />}>
                         <Route path="/admin" element={<AdminLayout />}>
                             <Route index element={<AdminDashboard />} />
-                            <Route path="dashboard" element={<AdminDashboard />} /> 
-                            <Route path="schedule" element={<AdminSchedule />} />
-                            <Route path="schedule/new" element={<AdminCreateTrip />} />
+                            <Route
+                                path="dashboard"
+                                element={<AdminDashboard />}
+                            />
+                            <Route
+                                path="schedule"
+                                element={<AdminSchedule />}
+                            />
+                            <Route
+                                path="schedule/new"
+                                element={<AdminCreateTrip />}
+                            />
                             <Route path="menu" element={<AdminMenu />} />
                         </Route>
-                        <Route path="/admin/kitchen/:slotId" element={<KitchenBoard />} />
+                        <Route
+                            path="/admin/kitchen/:slotId"
+                            element={<KitchenBoard />}
+                        />
                     </Route>
                 </Routes>
             </div>
