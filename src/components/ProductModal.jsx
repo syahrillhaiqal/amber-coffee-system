@@ -75,7 +75,7 @@ const handleAddToCart = () => {
 
             <div className="p-6 pb-32">
                 <div className="flex justify-between items-start mb-2">
-                    <h2 className="text-2xl font-bold text-gray-900 leading-tight">{item.name}</h2>
+                    <p className="text-lg font-bold text-gray-900 leading-tight">{item.name}</p>
                     <span className="text-xl font-bold text-primary whitespace-nowrap ml-4">RM {item.price.toFixed(2)}</span>
                 </div>
                 <p className="text-gray-500 text-sm mb-6 leading-relaxed">{item.desc}</p>

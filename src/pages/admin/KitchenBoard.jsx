@@ -59,12 +59,15 @@ export default function KitchenBoard() {
                 id: doc.id,
                 ...doc.data(),
             }));
-            ordersData = ordersData.filter(order => 
-                order.status !== 'PENDING_PAYMENT' && 
-                order.status !== 'CANCELLED'
+            ordersData = ordersData.filter(
+                (order) =>
+                    order.status !== "PENDING_PAYMENT" &&
+                    order.status !== "CANCELLED"
             );
-            
-            ordersData.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+
+            ordersData.sort(
+                (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
+            );
             setOrders(ordersData);
             setLoading(false);
         });
@@ -720,28 +723,50 @@ export default function KitchenBoard() {
                                             className="p-3 border-b border-stone-100 last:border-0 flex justify-between items-center bg-white"
                                         >
                                             <div className="flex gap-3 items-center">
-                                        <div className="bg-stone-100 h-8 w-8 rounded-lg flex items-center justify-center font-bold text-stone-600 text-sm">{item.quantity}</div>
-                                        <div>
-                                            <div className="flex items-center gap-2">
-                                                <span className="font-bold text-stone-800">{item.name}</span>
-                                                
-                                                {/* --- NEW: PROTECTION BADGE (Modal) --- */}
-                                                <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase border ${
-                                                    item.protection === 'premium' 
-                                                    ? 'bg-purple-50 text-purple-700 border-purple-200' 
-                                                    : 'bg-blue-50 text-blue-700 border-blue-200'
-                                                }`}>
-                                                    {item.protection || 'Basic'}
-                                                </span>
-                                            </div>
+                                                <div className="bg-stone-100 h-8 w-8 rounded-lg flex items-center justify-center font-bold text-stone-600 text-sm">
+                                                    {item.quantity}
+                                                </div>
+                                                <div>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="font-bold text-stone-800">
+                                                            {item.name}
+                                                        </span>
 
-                                            <div className="flex gap-1 flex-wrap mt-0.5">
-                                                {item.sugarLevel && <span className="text-[10px] bg-green-100 text-green-700 font-bold px-1.5 rounded">{item.sugarLevel}</span>}
-                                                {item.addon && <span className="text-[10px] bg-orange-100 text-orange-700 font-bold px-1.5 rounded">+{item.addon}</span>}
+                                                        {/* --- NEW: PROTECTION BADGE (Modal) --- */}
+                                                        <span
+                                                            className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase border ${
+                                                                item.protection ===
+                                                                "premium"
+                                                                    ? "bg-purple-50 text-purple-700 border-purple-200"
+                                                                    : "bg-blue-50 text-blue-700 border-blue-200"
+                                                            }`}
+                                                        >
+                                                            {item.protection ||
+                                                                "Basic"}
+                                                        </span>
+                                                    </div>
+
+                                                    <div className="flex gap-1 flex-wrap mt-0.5">
+                                                        {item.sugarLevel && (
+                                                            <span className="text-[10px] bg-green-100 text-green-700 font-bold px-1.5 rounded">
+                                                                {
+                                                                    item.sugarLevel
+                                                                }
+                                                            </span>
+                                                        )}
+                                                        {item.addon && (
+                                                            <span className="text-[10px] bg-orange-100 text-orange-700 font-bold px-1.5 rounded">
+                                                                +{item.addon}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    {item.remark && (
+                                                        <div className="text-xs text-red-500 italic mt-1">
+                                                            "{item.remark}"
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
-                                            {item.remark && <div className="text-xs text-red-500 italic mt-1">"{item.remark}"</div>}
-                                        </div>
-                                    </div>
                                         </div>
                                     ))}
                                     <div className="bg-stone-50 p-3 flex justify-between items-center font-bold text-stone-800">
