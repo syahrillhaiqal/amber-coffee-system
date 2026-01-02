@@ -1,150 +1,332 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Clock, Calendar } from "lucide-react";
+import { Calendar, Clock, Package, AlertCircle, Loader2 } from "lucide-react";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { db } from "../../lib/firebase";
+import logo from "../../assets/amber-coffee-logo-only.png";
 
 export default function TripSelection() {
     const [trips, setTrips] = useState([]);
     const [loading, setLoading] = useState(true);
-    
-    // Get Today's Date String in local time
-    const getTodayString = () => {
-        const now = new Date();
-        const offset = now.getTimezoneOffset() * 60000;
-        const localDate = new Date(now.getTime() - offset);
-        return localDate.toISOString().split('T')[0];
+
+    // Force Malaysia Timezone
+    const getMalaysiaDateString = () => {
+        return new Date().toLocaleDateString("en-CA", {
+            timeZone: "Asia/Kuala_Lumpur",
+        });
     };
-    
-    const today = getTodayString();
-    const displayDate = new Date().toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long' });
+
+    const today = getMalaysiaDateString();
+
+    const displayDate = new Date().toLocaleDateString("en-GB", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+        timeZone: "Asia/Kuala_Lumpur",
+    });
 
     useEffect(() => {
         setLoading(true);
 
-        // 1. Listen to Today's Slots (Real-time)
-        const slotsQuery = query(collection(db, "delivery_slots"), where("dateString", "==", today));
-        
+        // 1. Listen to Slots
+        const slotsQuery = query(
+            collection(db, "delivery_slots"),
+            where("dateString", "==", today)
+        );
+
         const unsubSlots = onSnapshot(slotsQuery, (slotsSnapshot) => {
-            const todaysTrips = slotsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const todaysTrips = slotsSnapshot.docs.map((doc) => ({
+                id: doc.id,
+                ...doc.data(),
+            }));
 
-            // 2. Listen to Orders (Real-time Cup Counting)
-            // We listen to ALL orders to ensure we catch every update.
-            // In a larger app, you'd optimize this query to only fetch today's orders.
-            const unsubOrders = onSnapshot(collection(db, "orders"), (ordersSnapshot) => {
-                const allOrders = ordersSnapshot.docs.map(doc => doc.data());
-
-                // 3. Merge & Calculate Capacity
-                const tripsWithCapacity = todaysTrips.map(trip => {
-                    // Filter orders for this specific trip
-                    const validOrders = allOrders.filter(o => 
-                        o.slotId === trip.id && 
-                        o.status !== 'CANCELLED' && 
-                        o.status !== 'PENDING_PAYMENT' 
+            // 2. Listen to Orders
+            const unsubOrders = onSnapshot(
+                collection(db, "orders"),
+                (ordersSnapshot) => {
+                    const allOrders = ordersSnapshot.docs.map((doc) =>
+                        doc.data()
                     );
-                    
-                    // Sum up the quantity of every item in every valid order
-                    const filledCups = validOrders.reduce((total, order) => {
-                        const orderCups = order.items.reduce((sum, item) => sum + item.quantity, 0);
-                        return total + orderCups;
-                    }, 0);
 
-                    return { ...trip, filledCups };
-                });
+                    // 3. Merge
+                    const tripsWithCapacity = todaysTrips.map((trip) => {
+                        const validOrders = allOrders.filter(
+                            (o) =>
+                                o.slotId === trip.id &&
+                                o.status !== "CANCELLED" &&
+                                o.status !== "PENDING_PAYMENT"
+                        );
 
-                // Sort by time
-                tripsWithCapacity.sort((a, b) => a.deliveryTime.localeCompare(b.deliveryTime));
-                
-                setTrips(tripsWithCapacity);
-                setLoading(false);
-            });
+                        const filledCups = validOrders.reduce(
+                            (total, order) => {
+                                const orderCups = order.items.reduce(
+                                    (sum, item) => sum + item.quantity,
+                                    0
+                                );
+                                return total + orderCups;
+                            },
+                            0
+                        );
 
-            return () => unsubOrders(); // Cleanup orders listener when slots update
+                        return { ...trip, filledCups };
+                    });
+
+                    tripsWithCapacity.sort((a, b) =>
+                        a.deliveryTime.localeCompare(b.deliveryTime)
+                    );
+
+                    setTrips(tripsWithCapacity);
+                    setLoading(false);
+                }
+            );
+
+            return () => unsubOrders();
         });
 
-        return () => unsubSlots(); // Cleanup slots listener on unmount
+        return () => unsubSlots();
     }, [today]);
 
     const getTripStatus = (trip) => {
         const now = new Date();
         const open = new Date(trip.openTime);
         const close = new Date(trip.cutoffTime);
-        
-        // Logic Priority: Full -> Closed -> Opens Soon -> Open
+
         const isFull = trip.filledCups >= trip.maxCapacity;
 
-        if (isFull) return { text: "FULL", color: "bg-red-100 text-red-600", active: false };
-        if (now >= close) return { text: "Closed", color: "bg-stone-200 text-stone-500", active: false };
-        if (now < open) return { text: "Opens Soon", color: "bg-gray-100 text-gray-500", active: false };
-        
-        return { text: "Order Open", color: "bg-green-100 text-green-700", active: true };
+        if (isFull)
+            return {
+                text: "FULL",
+                color: "bg-red-100 text-red-600",
+                active: false,
+            };
+        if (now >= close)
+            return {
+                text: "Closed",
+                color: "bg-stone-200 text-stone-500",
+                active: false,
+            };
+        if (now < open)
+            return {
+                text: "Opens Soon",
+                color: "bg-blue-100 text-blue-600",
+                active: false,
+            };
+
+        return {
+            text: "Open Now",
+            color: "bg-green-100 text-green-700",
+            active: true,
+        };
     };
 
     return (
-        <div className="px-4 py-8 max-w-md mx-auto">
-            <div className="mb-6">
-                <h2 className="text-2xl font-bold text-gray-800">Choose Delivery Trip</h2>
+        <div className="px-4 py-6 max-w-md mx-auto min-h-screen bg-stone-100">
+            <div className="mb-5">
+                <h2 className="text-2xl font-bold text-gray-800">
+                    Choose Delivery Trip
+                </h2>
                 <div className="flex items-center gap-2 text-primary font-medium mt-1">
-                    <Calendar size={18} />
-                    <span>{displayDate}</span>
+                    <Calendar size={16} />
+                    <span className="text-sm">{displayDate}</span>
                 </div>
             </div>
 
-            <div className="space-y-4">
-                {loading ? <p className="text-center text-gray-400">Loading schedules...</p> : trips.length === 0 ? (
+            <div className="space-y-3">
+                {loading ? (
+                    <div className="flex flex-col items-center justify-center min-h-[60vh] text-gray-400 gap-2">
+                        <img
+                            src={logo}
+                            alt="Logo"
+                            className="h-14 w-auto mb-2"
+                        />
+                        <div className="flex items-center gap-2 font-medium">
+                            <Loader2 className="animate-spin w-5 h-5 text-primary" />
+                            <span>Loading...</span>
+                        </div>
+                    </div>
+                ) : trips.length === 0 ? (
                     <div className="text-center p-8 bg-white rounded-2xl border border-dashed border-gray-300">
-                        <p className="text-gray-500">No delivery trips scheduled for today.</p>
+                        <Calendar
+                            size={48}
+                            className="mx-auto mb-4 text-gray-300"
+                        />
+                        <p className="text-gray-500 font-bold">
+                            No trips available.
+                        </p>
+                        <p className="text-sm text-gray-400 mt-1">
+                            Check back later or tomorrow!
+                        </p>
                     </div>
                 ) : (
-                    trips.map(trip => {
+                    trips.map((trip) => {
                         const status = getTripStatus(trip);
-                        const timeStr = new Date(trip.deliveryTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                        const cutoffStr = new Date(trip.cutoffTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                        
-                        // Percentage for progress bar
-                        const percentFull = Math.min(100, Math.round((trip.filledCups / trip.maxCapacity) * 100));
+                        const timeStr = new Date(
+                            trip.deliveryTime
+                        ).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            hour12: true,
+                        });
+                        const openStr = new Date(
+                            trip.openTime
+                        ).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            hour12: true,
+                        });
+                        const cutoffStr = new Date(
+                            trip.cutoffTime
+                        ).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            hour12: true,
+                        });
+
+                        const remainingCups = Math.max(
+                            0,
+                            trip.maxCapacity - trip.filledCups
+                        );
+
+                        const isLowStock =
+                            remainingCups <= 5 && remainingCups > 0;
 
                         return (
-                            <Link 
+                            <Link
                                 key={trip.id}
                                 to={status.active ? "/menu" : "#"}
-                                state={status.active ? { tripId: trip.id, name: timeStr, time: timeStr, selectedMenuIds: trip.selectedMenuIds } : null}
+                                state={
+                                    status.active
+                                        ? {
+                                              tripId: trip.id,
+                                              name: timeStr,
+                                              time: timeStr,
+                                              selectedMenuIds:
+                                                  trip.selectedMenuIds,
+                                          }
+                                        : null
+                                }
                                 onClick={() => {
-                                    if(status.active) {
-                                        sessionStorage.setItem("currentTrip", JSON.stringify({ 
-                                            tripId: trip.id, 
-                                            name: timeStr, 
-                                            time: timeStr, 
-                                            selectedMenuIds: trip.selectedMenuIds 
-                                        }));
+                                    if (status.active) {
+                                        localStorage.setItem(
+                                            "currentTrip",
+                                            JSON.stringify({
+                                                tripId: trip.id,
+                                                name: timeStr,
+                                                time: timeStr,
+                                                selectedMenuIds:
+                                                    trip.selectedMenuIds,
+                                            })
+                                        );
                                     }
                                 }}
-                                className={`block group ${!status.active && 'opacity-60 cursor-not-allowed pointer-events-none'}`}
+                                className={`block group transition-transform active:scale-[0.98] ${
+                                    !status.active &&
+                                    "opacity-60 cursor-not-allowed pointer-events-none"
+                                }`}
                             >
-                                <div className={`border-2 bg-white p-5 rounded-2xl transition-all shadow-sm ${status.active ? 'border-orange-100 hover:border-primary' : 'border-gray-100'}`}>
-                                    <div className="flex justify-between items-center mb-2">
-                                        <span className={`${status.color} px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide`}>
+                                <div
+                                    className={`border-2 bg-white p-4 rounded-xl transition-all shadow-sm ${
+                                        status.active
+                                            ? "border-stone-200 hover:border-primary hover:shadow-md"
+                                            : "border-gray-200 bg-gray-50"
+                                    }`}
+                                >
+                                    {/* SECTION 1: Trip Time & Status */}
+                                    <div className="flex justify-between items-start mb-3">
+                                        <div>
+                                            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-0.5">
+                                                Delivery
+                                            </p>
+                                            <p className="text-2xl font-black text-gray-800">
+                                                {timeStr}
+                                            </p>
+                                        </div>
+                                        <span
+                                            className={`${status.color} px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wide flex items-center gap-1`}
+                                        >
+                                            {status.active && (
+                                                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                                            )}
                                             {status.text}
                                         </span>
-                                        {/* Live Cup Counter */}
-                                        <div className="flex items-center gap-1 text-xs font-bold text-gray-400">
-                                            <span>{trip.filledCups} / {trip.maxCapacity} Cups</span>
+                                    </div>
+
+                                    {/* SECTION 2: Capacity Info */}
+                                    <div className="mb-3">
+                                        <div
+                                            className={`flex items-center justify-between p-2 rounded-lg border ${
+                                                isLowStock
+                                                    ? "bg-amber-50 border-amber-200"
+                                                    : remainingCups === 0
+                                                    ? "bg-red-50 border-red-200"
+                                                    : "bg-green-50 border-green-200"
+                                            }`}
+                                        >
+                                            <div className="flex items-center gap-1.5">
+                                                <Package
+                                                    size={16}
+                                                    className={
+                                                        isLowStock
+                                                            ? "text-amber-600"
+                                                            : remainingCups ===
+                                                              0
+                                                            ? "text-red-600"
+                                                            : "text-green-600"
+                                                    }
+                                                />
+                                                <span className="text-xs font-semibold text-gray-700">
+                                                    Cups Available
+                                                </span>
+                                            </div>
+                                            <span
+                                                className={`text-sm font-black ${
+                                                    isLowStock
+                                                        ? "text-amber-600"
+                                                        : remainingCups === 0
+                                                        ? "text-red-600"
+                                                        : "text-green-600"
+                                                }`}
+                                            >
+                                                {remainingCups === 0
+                                                    ? "SOLD OUT"
+                                                    : `${remainingCups} left`}
+                                            </span>
                                         </div>
                                     </div>
-                                    
-                                    <h3 className="text-xl font-bold text-gray-800">Trip: {timeStr} Arrival</h3>
-                                    
-                                    {/* Capacity Bar */}
-                                    <div className="w-full bg-gray-100 h-2 rounded-full mt-3 mb-1 overflow-hidden">
-                                        <div 
-                                            className={`h-full rounded-full transition-all duration-500 ${percentFull >= 100 ? 'bg-red-500' : 'bg-green-500'}`} 
-                                            style={{ width: `${percentFull}%` }}
-                                        ></div>
+
+                                    {/* SECTION 3: Order Window Times */}
+                                    <div className="pt-2.5 border-t border-gray-100 space-y-1.5">
+                                        <div className="flex items-center justify-between text-xs">
+                                            <div className="flex items-center gap-1.5 text-gray-500">
+                                                <Clock
+                                                    size={12}
+                                                    className="text-blue-500"
+                                                />
+                                                <span className="font-medium">
+                                                    Open
+                                                </span>
+                                            </div>
+                                            <span className="font-bold text-gray-800">
+                                                {openStr}
+                                            </span>
+                                        </div>
+
+                                        <div className="flex items-center justify-between text-xs">
+                                            <div className="flex items-center gap-1.5 text-gray-500">
+                                                <Clock
+                                                    size={12}
+                                                    className="text-red-500"
+                                                />
+                                                <span className="font-medium">
+                                                    Close
+                                                </span>
+                                            </div>
+                                            <span className="font-bold text-gray-800">
+                                                {cutoffStr}
+                                            </span>
+                                        </div>
                                     </div>
-                                    
-                                    <p className="text-gray-500 text-sm mt-1">
-                                        Order before <strong>{cutoffStr}</strong>
-                                    </p>
                                 </div>
                             </Link>
                         );

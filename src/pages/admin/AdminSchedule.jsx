@@ -199,7 +199,7 @@ const getTodayDate = () => {
                                 <p className="text-xs font-bold text-stone-400 uppercase mb-1">{dateStr}</p>
                                 <h3 className="text-3xl font-black text-stone-800 tracking-tight flex items-end gap-2">
                                     {formatTime(slot.deliveryTime)}
-                                    <span className="text-sm font-bold text-stone-400 mb-1">Trip</span>
+                                    <span className="text-sm font-bold text-stone-400 mb-1">Trip</span> 
                                 </h3>
                                 {/* Minimalist Open/Close Times */}
                                 <p className="text-xs text-stone-500 mt-2 font-medium">
