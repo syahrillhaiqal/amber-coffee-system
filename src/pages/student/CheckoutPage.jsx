@@ -4,25 +4,24 @@ import { ArrowLeft, MapPin, Loader2, Truck, Mail } from "lucide-react";
 import { collection, addDoc, doc, getDoc, query, where, getDocs } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 import axios from "axios";
+import { logEvent } from "firebase/analytics";
+import { analytics } from "../../lib/firebase";
 
 export default function CheckoutPage({ clearCart }) { 
     const navigate = useNavigate();
     const location = useLocation();
     
-    // 1. GET DATA
     const { cart, subTotal, protectionFee, protectionType, tripInfo } = location.state || {}; 
 
-    // --- FIX START: RE-CALCULATE DELIVERY FEE ---
-    // Why? To ensure it's always accurate based on the actual cart content
+
     const cartCups = cart ? cart.reduce((sum, item) => sum + item.quantity, 0) : 0;
     
-    // Logic: If cups > 1, Free. Else, RM 1.00
+    // If cups > 1, Free. Else, RM 1.00
     const finalDeliveryFee = cartCups > 1 ? 0 : 1.00;
 
     // Recalculate Final Total
     // (Subtotal + Protection + Delivery)
     const finalTotal = (subTotal || 0) + (protectionFee || 0) + finalDeliveryFee;
-    // --- FIX END ---
 
     const [loading, setLoading] = useState(false);
     
@@ -106,6 +105,8 @@ export default function CheckoutPage({ clearCart }) {
         if (!isValidEmail(formData.email)) return alert("Please enter a valid email address.");
         if (formData.pickupPoint === "NR" && !formData.address) return alert("Please enter your full address for NR delivery.");
 
+        // logEvent(analytics, "begin_checkout");
+
         setLoading(true);
 
         const isValid = await checkTripValidity();
@@ -144,7 +145,7 @@ export default function CheckoutPage({ clearCart }) {
                 subTotal: subTotal || 0,
                 protectionFee: protectionFee || 0,
                 protectionType: protectionType || "Mixed",
-                deliveryFee: finalDeliveryFee, // <--- Correctly Saved
+                deliveryFee: finalDeliveryFee, 
                 totalPrice: finalTotal,
                 
                 status: "PENDING_PAYMENT", 
@@ -243,7 +244,7 @@ export default function CheckoutPage({ clearCart }) {
                             <option value="Alpha">Alpha (Front of Alpha 9)</option>
                             <option value="Beta">Beta (Front of Beta 12)</option>
                             <option value="Gamma">Gamma (Gamma Cafe)</option>
-                            {/* <option value="NR">NR (Non-Resident)</option> */}
+                            <option value="NR">NR (Non-Resident)</option>
                         </select>
                     </div>
                     {formData.pickupPoint === "NR" && (
