@@ -90,7 +90,7 @@ export default function ReceiptPage() {
                                             ? 'text-purple-600 border-purple-200 bg-purple-50' 
                                             : 'text-blue-600 border-blue-200 bg-blue-50'
                                         }`}>
-                                            {item.protection === 'premium' ? 'PREM' : 'BSC'}
+                                            {item.protection === 'premium' ? 'PREMIUM' : 'BASIC'}
                                         </span>
                                     </div>
                                     
