@@ -54,7 +54,7 @@ export default function CartDrawer({ cart, close, tripInfo, removeFromCart, upda
                 cart, 
                 subTotal: itemsTotal, 
                 protectionFee, 
-                deliveryFee, // Pass this to checkout
+                deliveryFee,
                 total: finalTotal, 
                 tripInfo 
             }

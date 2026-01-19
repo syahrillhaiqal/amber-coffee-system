@@ -13,15 +13,7 @@ export default function CheckoutPage({ clearCart }) {
     
     const { cart, subTotal, protectionFee, protectionType, tripInfo } = location.state || {}; 
 
-
     const cartCups = cart ? cart.reduce((sum, item) => sum + item.quantity, 0) : 0;
-    
-    // If cups > 1, Free. Else, RM 1.00
-    const finalDeliveryFee = cartCups > 1 ? 0 : 1.00;
-
-    // Recalculate Final Total
-    // (Subtotal + Protection + Delivery)
-    const finalTotal = (subTotal || 0) + (protectionFee || 0) + finalDeliveryFee;
 
     const [loading, setLoading] = useState(false);
     
@@ -32,6 +24,24 @@ export default function CheckoutPage({ clearCart }) {
         pickupPoint: "Alpha",
         address: "",
     });
+
+    const getFinalDeliveryFee = () => {
+
+        if (cartCups <= 1) {
+            if (formData.pickupPoint === "NR") {
+                return 2.00;
+            }
+            else {
+                return 1.00;
+            }
+        }
+
+        return 0;
+    }
+
+    const finalDeliveryFee = getFinalDeliveryFee();
+
+    const finalTotal = (subTotal || 0) + (protectionFee || 0) + finalDeliveryFee;
 
     const isValidPhone = (phone) => {
         return /^[0-9]{9,15}$/.test(phone);
@@ -244,7 +254,7 @@ export default function CheckoutPage({ clearCart }) {
                             <option value="Alpha">Alpha (Front of Alpha 9)</option>
                             <option value="Beta">Beta (Front of Beta 12)</option>
                             <option value="Gamma">Gamma (Gamma Cafe)</option>
-                            {/* <option value="NR">NR (Non-Resident)</option> */}
+                            <option value="NR">NR (Non-Resident) {cartCups <= 1 ? '(+RM1.00)' : ''}</option>
                         </select>
                     </div>
                     {formData.pickupPoint === "NR" && (
