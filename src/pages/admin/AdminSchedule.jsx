@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Calendar as CalIcon, Plus, Users, ArrowRight, Trash2, History, Clock } from "lucide-react";
 import { collection, getDocs, deleteDoc, doc, onSnapshot } from "firebase/firestore";
 import { db } from "../../lib/firebase";
@@ -14,10 +14,11 @@ const getTodayDate = () => {
         return `${year}-${month}-${day}`;
     };
 
-    const [viewMode, setViewMode] = useState("upcoming");
+    const location = useLocation();
     const [selectedDate, setSelectedDate] = useState(getTodayDate());
     const [slots, setSlots] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [viewMode, setViewMode] = useState(location.state?.restoredViewMode || "upcoming");
 
     const fetchSlots = async () => {
         setLoading(true);
@@ -220,7 +221,9 @@ const getTodayDate = () => {
 
                             {/* Actions */}
                             <div className="mt-auto flex gap-2">
-                                <Link to={`/admin/kitchen/${slot.id}`} className="flex-1 py-3 bg-stone-900 text-white rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-black transition-colors">
+                                <Link to={`/admin/kitchen/${slot.id}`} 
+                                state={{ previousViewMode: viewMode }}
+                                className="flex-1 py-3 bg-stone-900 text-white rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-black transition-colors">
                                     {status.label === 'ENDED' ? 'View History' : 'Runner View'} 
                                     <ArrowRight size={16} />
                                 </Link>

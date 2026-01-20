@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useLocation, useNavigate } from "react-router-dom";
 import {
     ArrowLeft,
     CheckCircle,
@@ -38,6 +38,9 @@ export default function KitchenBoard() {
     const [activeTab, setActiveTab] = useState("WRITE");
     const [selectedOrder, setSelectedOrder] = useState(null);
     const [runnerManifest, setRunnerManifest] = useState(null);
+
+    const location = useLocation();
+    const navigate = useNavigate();
 
     useEffect(() => {
         const fetchSlotInfo = async () => {
@@ -85,6 +88,15 @@ export default function KitchenBoard() {
     const deleteOrder = async (orderId) => {
         if (confirm("Delete this order?"))
             await deleteDoc(doc(db, "orders", orderId));
+    };
+
+    const handleBack = () => {
+        // Navigate back to schedule, passing the 'previousViewMode' as 'restoredViewMode'
+        navigate("/admin/schedule", {
+            state: { 
+                restoredViewMode: location.state?.previousViewMode || "upcoming" 
+            }
+        });
     };
 
     const confirmBatchDelivery = async () => {
@@ -294,12 +306,12 @@ export default function KitchenBoard() {
             {/* Header */}
             <div className="bg-stone-800 border-b border-stone-700 px-4 py-3 flex items-center justify-between shrink-0">
                 <div className="flex items-center gap-3">
-                    <Link
-                        to="/admin/schedule"
+                    <button
+                        onClick={handleBack}
                         className="p-2 bg-stone-700 hover:bg-stone-600 rounded-lg text-white"
                     >
                         <ArrowLeft size={20} />
-                    </Link>
+                    </button>
                     <div>
                         <h1 className="text-lg font-black text-white leading-tight">
                             RUNNER BOARD
