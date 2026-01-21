@@ -1,11 +1,9 @@
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { ArrowLeft, MapPin, Loader2, Truck, Mail } from "lucide-react"; 
+import { ArrowLeft, MapPin, Loader2, Truck, Mail, Gift, ShoppingBag } from "lucide-react"; 
 import { collection, addDoc, doc, getDoc, query, where, getDocs } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 import axios from "axios";
-import { logEvent } from "firebase/analytics";
-import { analytics } from "../../lib/firebase";
 
 export default function CheckoutPage({ clearCart }) { 
     const navigate = useNavigate();
@@ -17,6 +15,9 @@ export default function CheckoutPage({ clearCart }) {
 
     const [loading, setLoading] = useState(false);
     
+    // NEW: Upsell Modal State
+    const [showUpsellModal, setShowUpsellModal] = useState(false);
+
     const [formData, setFormData] = useState({
         name: "",
         phone: "",
@@ -25,23 +26,44 @@ export default function CheckoutPage({ clearCart }) {
         address: "",
     });
 
-    const getFinalDeliveryFee = () => {
+    // --- UPDATED DELIVERY FEE LOGIC ---
+    const getFinalDeliveryFee = (pickupPoint) => {
+        const point = pickupPoint || formData.pickupPoint;
 
-        if (cartCups <= 1) {
-            if (formData.pickupPoint === "NR") {
-                return 2.00;
-            }
-            else {
-                return 1.00;
-            }
+        // 1. NR Logic: RM3.00 Base, Free if 5+ cups
+        if (point === "NR") {
+            if (cartCups >= 5) return 0;
+            return 3.00;
         }
 
-        return 0;
+        // 2. Standard Logic: RM1.00 Base, Free if >1 cup
+        if (cartCups > 1) {
+            return 0;
+        } else {
+            return 1.00;
+        }
     }
 
-    const finalDeliveryFee = getFinalDeliveryFee();
+    // Calculate current fee based on state
+    const finalDeliveryFee = getFinalDeliveryFee(formData.pickupPoint);
 
     const finalTotal = (subTotal || 0) + (protectionFee || 0) + finalDeliveryFee;
+
+    // --- NEW: Handle Dropdown Change ---
+    const handleLocationChange = (e) => {
+        const newLocation = e.target.value;
+        setFormData({ ...formData, pickupPoint: newLocation });
+
+        // Trigger Upsell if NR selected AND cups < 5
+        if (newLocation === "NR" && cartCups < 5) {
+            setShowUpsellModal(true);
+        }
+    };
+
+    const handleAddMoreItems = () => {
+        // Navigate back to menu with current trip state so they can add items
+        navigate('/menu', { state: tripInfo });
+    };
 
     const isValidPhone = (phone) => {
         return /^[0-9]{9,15}$/.test(phone);
@@ -183,7 +205,7 @@ export default function CheckoutPage({ clearCart }) {
     }
 
     return (
-       <div className="min-h-screen bg-stone-100 pb-24 font-sans">
+       <div className="min-h-screen bg-stone-100 pb-24 font-sans relative">
             {/* Header */}
             <div className="bg-white p-4 shadow-sm flex items-center gap-4 sticky top-0 z-10">
                 <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-full">
@@ -249,22 +271,31 @@ export default function CheckoutPage({ clearCart }) {
                         <select 
                             className="w-full pl-10 p-3 bg-stone-100 rounded-xl border-none focus:ring-2 focus:ring-primary/20 appearance-none"
                             value={formData.pickupPoint}
-                            onChange={e => setFormData({...formData, pickupPoint: e.target.value})}
+                            onChange={handleLocationChange}
                         >
                             <option value="Alpha">Alpha (Front of Alpha 9)</option>
                             <option value="Beta">Beta (Front of Beta 12)</option>
                             <option value="Gamma">Gamma (Gamma Cafe)</option>
-                            <option value="NR">NR (Non-Resident) {cartCups <= 1 ? '(+RM1.00)' : ''}</option>
+                            {/* Updated Label Logic for NR */}
+                            <option value="NR">
+                                NR (Non-Resident) {cartCups >= 5 ? '' : '(RM3.00)'}
+                            </option>
                         </select>
                     </div>
                     {formData.pickupPoint === "NR" && (
-                        <textarea 
-                            placeholder="Full Address (House No, Street...)"
-                            className="w-full p-3 bg-orange-50 rounded-xl border border-orange-100 focus:ring-2 focus:ring-orange-200 transition-all text-sm"
-                            rows="2"
-                            value={formData.address}
-                            onChange={e => setFormData({...formData, address: e.target.value})}
-                        />
+                        <div className="animate-fade-in">
+                            <textarea 
+                                placeholder="Full Address (House No, Street...)"
+                                className="w-full p-3 bg-orange-50 rounded-xl border border-orange-100 focus:ring-2 focus:ring-orange-200 transition-all text-sm"
+                                rows="2"
+                                value={formData.address}
+                                onChange={e => setFormData({...formData, address: e.target.value})}
+                            />
+                             {/* Small text hint for NR */}
+                             <p className="text-[10px] text-orange-600 mt-1 pl-1">
+                                *NR Delivery requires min. 5 cups for free delivery.
+                            </p>
+                        </div>
                     )}
                 </div>
 
@@ -299,6 +330,48 @@ export default function CheckoutPage({ clearCart }) {
                     {loading ? "Processing..." : `Confirm & Pay`}
                 </button>
             </div>
+
+            {/* --- UPSELL POPUP MODAL (NR SPECIFIC) --- */}
+            {showUpsellModal && (
+                <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+                    <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-scale-up text-center relative overflow-hidden">
+                        {/* Decorative background circle */}
+                        <div className="absolute -top-10 -right-10 w-32 h-32 bg-green-100 rounded-full opacity-50"></div>
+
+                        <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4 text-green-600">
+                            <Gift size={32} />
+                        </div>
+
+                        <h2 className="text-xl font-black text-gray-900 mb-2">
+                            Delivery is RM3.00
+                        </h2>
+                        <p className="text-gray-500 mb-6 text-sm leading-relaxed">
+                            NR Delivery is <b>FREE</b> if you order 5 cups or more.
+                            <br />
+                            You currently have <b>{cartCups} cups</b>.
+                            <br />
+                            <span className="text-green-600 font-bold mt-2 block">
+                                Add {5 - cartCups} more to save RM3.00!
+                            </span>
+                        </p>
+
+                        <div className="space-y-3">
+                            <button
+                                onClick={handleAddMoreItems}
+                                className="w-full bg-green-600 text-white py-3.5 rounded-xl font-bold shadow-lg shadow-green-200 active:scale-95 transition-transform flex items-center justify-center gap-2"
+                            >
+                                <ShoppingBag size={18} /> Add More Items
+                            </button>
+                            <button
+                                onClick={() => setShowUpsellModal(false)}
+                                className="w-full text-gray-400 font-bold text-sm py-2 hover:text-gray-600"
+                            >
+                                No thanks, I'll pay RM3.00
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
        </div>
     );
 }
