@@ -4,7 +4,9 @@ import { ArrowLeft, MapPin, Loader2, Truck, Mail, Gift, ShoppingBag } from "luci
 import axios from "axios";
 import { calcDeliveryFee } from "../../lib/pricing";
 import { createOrder, getFilledCupsForSlot } from "../../services/orderService";
-import { getSlotById } from "../../services/slotService";
+import { getSlotById } from "../../services/slotService"; 
+import { logEvent } from "firebase/analytics";
+import { analytics } from "../../lib/firebase";
 
 export default function CheckoutPage({ clearCart }) { 
 
@@ -32,6 +34,9 @@ export default function CheckoutPage({ clearCart }) {
     // Handle Dropdown Change
     const handleLocationChange = (e) => {
         const newLocation = e.target.value;
+
+        logEvent(analytics, "select_delivery_location", { location: newLocation });
+
         setFormData({ ...formData, pickupPoint: newLocation });
 
         // Trigger Upsell if NR selected AND cups < 5
@@ -104,8 +109,6 @@ export default function CheckoutPage({ clearCart }) {
         if (!isValidEmail(formData.email)) return alert("Please enter a valid email address.");
         if (formData.pickupPoint === "NR" && !formData.address) return alert("Please enter your full address for NR delivery.");
 
-        // logEvent(analytics, "begin_checkout");
-
         setLoading(true);
 
         const isValid = await checkTripValidity();
@@ -155,6 +158,21 @@ export default function CheckoutPage({ clearCart }) {
 
             await createOrder(orderPayload);
             window.location.href = paymentUrl; 
+
+            logEvent(analytics, "purchase", {
+                transaction_id: shortId,
+                value: finalTotal,
+                currency: "MYR",
+                items: cart.map(item => ({
+                    item_id: item.id,
+                    item_name: item.name,
+                    price: item.price,
+                    quantity: item.quantity
+                })),
+                delivery_location: formData.pickupPoint,
+                protection_fee: protectionFee,
+                delivery_fee: finalDeliveryFee
+            });
         } catch (error) {
             console.error("Payment Error:", error);
             alert("Payment gateway failed. Please make sure your details are correct.");

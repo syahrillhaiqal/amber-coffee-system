@@ -4,6 +4,8 @@ import { X, ShieldCheck, Info, Trash2, CheckCircle2, ZoomIn, Truck } from 'lucid
 import imgBasic from "../assets/package-basic.png";
 import imgPremium from "../assets/package-premium.png";
 import { calcTotals } from "../lib/pricing";
+import { logEvent } from "firebase/analytics";
+import { analytics } from "../lib/firebase";
 
 const PACKAGES = {
     basic: { 
@@ -26,10 +28,32 @@ export default function CartDrawer({ cart, close, tripInfo, removeFromCart, upda
     
     const [showFullImage, setShowFullImage] = useState(null); // stores 'basic' or 'premium'
 
-    const { subTotal, protectionFee, deliveryFee, finalTotal } = calcTotals(cart);
+    const { subTotal, protectionFee, deliveryFee, finalTotal, totalCups } = calcTotals(cart);
+
+    const handlePackageSelect = (item, type) => {
+        
+        updateCartItemProtection(item.cartId, type);
+
+        logEvent(analytics, "select_protection", {
+            cart_item_id: item.cartId,
+            item_name: item.name,
+            protection_type: type,
+            protection_price: PACKAGES[type].price
+        });
+    };
 
     const handleCheckout = () => {
         close();
+
+        logEvent(analytics, "begin_checkout", {
+            cart_size: cart.length,
+            total_cups: totalCups,
+            subtotal: subTotal,
+            protection_fee: protectionFee,
+            delivery_fee: deliveryFee,
+            total_value: finalTotal
+        });
+
         navigate('/checkout', {
             state: {
                 cart,
@@ -125,7 +149,7 @@ export default function CartDrawer({ cart, close, tripInfo, removeFromCart, upda
                                         <p className="text-[10px] font-bold text-gray-600 uppercase w-16">Package:</p>
                                         <div className="flex-1 flex gap-2">
                                             <button 
-                                                onClick={() => updateCartItemProtection(item.cartId, 'basic')}
+                                                onClick={() => handlePackageSelect(item, 'basic')}
                                                 className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold border transition-all ${
                                                     (item.protection || 'basic') === 'basic' 
                                                     ? 'bg-white border-blue-500 text-blue-600 shadow-sm' 
@@ -135,7 +159,7 @@ export default function CartDrawer({ cart, close, tripInfo, removeFromCart, upda
                                                 Basic
                                             </button>
                                             <button 
-                                                onClick={() => updateCartItemProtection(item.cartId, 'premium')}
+                                                onClick={() => handlePackageSelect(item, 'premium')}
                                                 className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold border transition-all ${
                                                     item.protection === 'premium' 
                                                     ? 'bg-white border-purple-500 text-purple-600 shadow-sm' 

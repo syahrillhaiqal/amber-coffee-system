@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
-import { db } from "../../lib/firebase";
+import { analytics, db } from "../../lib/firebase";
+import { logEvent } from "firebase/analytics";
 
 export default function PaymentStatusPage({ clearCart }) {
 
@@ -12,18 +13,26 @@ export default function PaymentStatusPage({ clearCart }) {
     const statusId = searchParams.get("status_id"); 
     const orderId = searchParams.get("order_id");
 
+    // Use a ref to prevent logging success multiple times on re-renders
+    const hasLoggedSuccess = useRef(false);
+    const hasLoggedFailure = useRef(false);
+
     useEffect(() => {
-        if (!orderId) {
+
+        // Handle initial failure
+        if (!orderId || statusId !== "1") {
             setStatus("fail");
+            if (!hasLoggedFailure.current) {
+                logEvent(analytics, "payment_failed", {
+                    order_id: orderId || "unknown",
+                    reason: !orderId ? "missing_order_id" : "toyyibpay_status_failed"
+                });
+                hasLoggedFailure.current = true;
+            }
             return;
         }
 
-        if (statusId !== "1") {
-            setStatus("fail");
-            return;
-        }
-
-        // Listen to the order in Real-Time
+        // Listen to the order in Real-Time (for success)
         // We wait for the Backend (Callback) to update the status to 'RECEIVED'
         const q = query(collection(db, "orders"), where("orderId", "==", orderId));
         
@@ -33,6 +42,17 @@ export default function PaymentStatusPage({ clearCart }) {
                 
                 // Check if Backend has done the payment
                 if (orderData.paymentStatus === "PAID" || orderData.status === "RECEIVED") {
+
+                    if (hasLoggedSuccess.current) return;
+                    hasLoggedSuccess.current = true;
+
+                    // Log Success
+                    logEvent(analytics, "payment_success", {
+                        order_id: orderData.orderId,
+                        total_paid: orderData.totalPrice,
+                        payment_method: "toyyibpay"
+                    });
+
                     clearCart();
                     setStatus("success");
 
@@ -43,6 +63,7 @@ export default function PaymentStatusPage({ clearCart }) {
                             state: { 
                                 orderId: orderId,
                                 timestamp: new Date().toLocaleString('en-GB'),
+                                tripTime: orderData.tripTime,
                                 cart: orderData.items,
                                 customer: { 
                                     pickupPoint: orderData.pickupPoint,

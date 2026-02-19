@@ -27,9 +27,15 @@ export default function AdminMenu() {
     const fetchMenu = async () => {
         setLoading(true);
 
-        const menuList = getAllMenuItems();
-        setItems(menuList);
-        setLoading(false);
+        try {
+            const menuList = await getAllMenuItems();
+            setItems(menuList);
+        } catch (error) {
+            console.error("Error fetching menu:", error);
+            setItems([]);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleImageChange = (e) => {

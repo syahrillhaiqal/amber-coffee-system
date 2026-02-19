@@ -36,6 +36,7 @@ export default function ReceiptPage() {
     const deliveryFee = data.totals?.deliveryFee ?? 0;
     const pickupPoint = data.customer?.pickupPoint ?? "Unknown";
     const address = data.customer?.address ?? "";
+    const deliveryTime = data.tripTime ?? "Unknown";
 
     return (
         <div className="min-h-screen bg-stone-100 p-6 flex flex-col items-center justify-center">
@@ -70,6 +71,11 @@ export default function ReceiptPage() {
                         <p className="text-xs font-bold text-stone-600">
                             {data.timestamp ? data.timestamp.split(",")[1] : new Date().toLocaleTimeString()}
                         </p>
+                        {deliveryTime && (
+                            <p className="text-xs font-bold text-primary mt-1">
+                                Delivery At: {deliveryTime}
+                            </p>
+                        )}
                     </div>
                 </div>
 

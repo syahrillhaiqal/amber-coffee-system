@@ -2,12 +2,13 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Calendar, Clock, Package, AlertCircle, Loader2 } from "lucide-react";
 import { collection, onSnapshot } from "firebase/firestore";
-import { db } from "../../lib/firebase";
+import { analytics, db } from "../../lib/firebase";
 import logo from "../../assets/amber-coffee-logo-only.png";
 import { getTodayString, formatDisplayDate, formatTime } from "../../lib/date";
 import { getTripStatus, getRemainingCups, getFilledCups } from "../../lib/trip";
 import { saveCurrentTrip } from "../../lib/storage";
 import { subscribeToSlotsByDate } from "../../services/slotService";
+import { logEvent } from "firebase/analytics";
 
 export default function TripSelection() {
 
@@ -16,6 +17,25 @@ export default function TripSelection() {
 
     const today = getTodayString();
     const displayDate = formatDisplayDate();
+
+    const handleTripSelection = (trip, status, timeStr, remainingCups, isLowStock) => {
+
+        if (!status.active) return;
+
+        logEvent(analytics, "select_trip", {
+            trip_id: trip.id,
+            trip_time: timeStr,
+            remaining_capacity: remainingCups,
+            is_low_stock: isLowStock
+        });
+
+        saveCurrentTrip({ 
+            tripId: trip.id, 
+            name: timeStr, 
+            time: timeStr, 
+            selectedMenuIds: trip.selectedMenuIds 
+        });
+    };
 
     useEffect(() => {
         const unsubSlots = subscribeToSlotsByDate(today, (todaysTrips) => {
@@ -89,9 +109,7 @@ export default function TripSelection() {
                         const openStr = formatTime(trip.openTime);
                         const cutoffStr = formatTime(trip.cutoffTime);
                         const remainingCups = getRemainingCups(trip);
-
-                        const isLowStock =
-                            remainingCups <= 5 && remainingCups > 0;
+                        const isLowStock = remainingCups <= 5 && remainingCups > 0;
 
                         // The state give to "../menu" the state, which is an object (trip data)
                         return (
@@ -108,11 +126,7 @@ export default function TripSelection() {
                                           }
                                         : null
                                 }
-                                onClick={() => {
-                                    if (status.active) {
-                                        saveCurrentTrip({ tripId: trip.id, name: timeStr, time: timeStr, selectedMenuIds: trip.selectedMenuIds });
-                                    }
-                                }}
+                                onClick={() => handleTripSelection(trip, status, timeStr, remainingCups, isLowStock)}
                                 className={`block group transition-transform active:scale-[0.98] ${
                                     !status.active &&
                                     "opacity-60 cursor-not-allowed pointer-events-none"

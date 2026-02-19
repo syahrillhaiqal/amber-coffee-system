@@ -6,6 +6,8 @@ import { useLocation, Link, useNavigate } from "react-router-dom";
 import logo from "../../assets/amber-coffee-logo-only.png";
 import { loadCurrentTrip } from "../../lib/storage";
 import { getMenuItemsByIds } from "../../services/menuService";
+import { logEvent } from "firebase/analytics";
+import { analytics } from "../../lib/firebase";
 
 const categories = ["Recommended", "Coffee", "Matcha", "Chocolate", "Refresher", "Pastry", "Food"];
 
@@ -55,9 +57,30 @@ export default function MenuPage({addToCart, removeFromCart, cart, updateCartIte
         }
     };
 
+    const handleItemClick = (item) => {
+        logEvent(analytics, "view_item", {
+            item_id: item.id,
+            item_name: item.name,
+            item_category: item.category,
+            price: item.price,
+            is_recommended: item.isRecommended
+        });
+
+        setSelectedItem(item);
+    };
+
     const currentCups = cart.reduce((sum, item) => sum + item.quantity, 0);
 
     const handleAddToCartWrapper = (item, qty, remark) => {
+        logEvent(analytics, "add_to_cart", {
+            item_id: item.id,
+            item_name: item.name,
+            quantity: qty,
+            price: item.price,
+            value: item.price * qty,
+            has_remark: !!remark
+        });
+
         addToCart(item, qty, remark);
 
         // UPSELL LOGIC: If total becomes 1, show modal
@@ -248,9 +271,7 @@ export default function MenuPage({addToCart, removeFromCart, cart, updateCartIte
                                     {items.map((item) => (
                                         <div
                                             key={item.id}
-                                            onClick={() =>
-                                                setSelectedItem(item)
-                                            }
+                                            onClick={() => handleItemClick(item)}
                                             className="flex bg-white p-3 rounded-2xl shadow-sm border border-gray-100 active:scale-[0.98] transition-transform cursor-pointer"
                                         >
                                             {item.image ? (

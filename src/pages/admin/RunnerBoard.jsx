@@ -303,6 +303,7 @@ export default function RunnerBoard() {
                                                 <CheckCircle size={16} />
                                             </button>
                                         }
+                                        setSelectedOrder={setSelectedOrder}
                                     />
                                 ))}
                                 {prepList.length === 0 && (
@@ -409,6 +410,7 @@ export default function RunnerBoard() {
                                                 </button>
                                             )
                                         }
+                                        setSelectedOrder={setSelectedOrder}
                                     />
                                 ))}
                             </div>
