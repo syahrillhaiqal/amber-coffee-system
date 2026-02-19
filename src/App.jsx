@@ -11,32 +11,19 @@ import AdminLogin from "./pages/admin/AdminLogin";
 import AdminLayout from "./components/AdminLayout";
 import AdminSchedule from "./pages/admin/AdminSchedule";
 import AdminMenu from "./pages/admin/AdminMenu";
-import KitchenBoard from "./pages/admin/KitchenBoard";
+import RunnerBoard from "./pages/admin/RunnerBoard";
 import RequireAuth from "./components/RequireAuth";
 import AdminCreateTrip from "./pages/admin/AdminCreateTrip";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import PaymentStatusPage from "./pages/student/PaymentStatusPage";
 import AnalyticsTracker from "./AnalyticsTracker";
+import { loadCurrentCart, saveCurrentCart, clearCurrentCart } from "./lib/storage";
 
 function App() {
+
     const [cart, setCart] = useState(() => {
-        const saved = sessionStorage.getItem("amberCart");
-        return saved ? JSON.parse(saved) : [];
+        return loadCurrentCart();
     });
-
-    const updateCartItemProtection = (cartId, newProtectionType) => {
-        setCart((prevCart) =>
-            prevCart.map((item) =>
-                item.cartId === cartId
-                    ? { ...item, protection: newProtectionType }
-                    : item
-            )
-        );
-    };
-
-    useEffect(() => {
-        sessionStorage.setItem("amberCart", JSON.stringify(cart));
-    }, [cart]);
 
     const addToCart = (item, quantity, remark) => {
         const cartItem = {
@@ -54,10 +41,25 @@ function App() {
         }
     };
 
+    const updateCartItemProtection = (cartId, newProtectionType) => {
+        setCart((prevCart) =>
+            prevCart.map((item) =>
+                item.cartId === cartId
+                    ? { ...item, protection: newProtectionType }
+                    : item
+            )
+        );
+    };
+
     const clearCart = () => {
         setCart([]);
-        sessionStorage.removeItem("amberCart");
+        clearCurrentCart();
     };
+
+    // When cart changed, automatically save cart to session storage
+    useEffect(() => {
+        saveCurrentCart(cart);
+    }, [cart]);
 
     return (
         <BrowserRouter>
@@ -73,12 +75,10 @@ function App() {
                             path="/menu"
                             element={
                                 <MenuPage
-                                    addToCart={addToCart}
-                                    removeFromCart={removeFromCart}
-                                    cart={cart}
-                                    updateCartItemProtection={
-                                        updateCartItemProtection
-                                    }
+                                    addToCart={addToCart} // Function
+                                    removeFromCart={removeFromCart} // Function
+                                    cart={cart} // Cart (array)
+                                    updateCartItemProtection={updateCartItemProtection} // Function
                                 />
                             }
                         />
@@ -109,24 +109,12 @@ function App() {
                     <Route element={<RequireAuth />}>
                         <Route path="/admin" element={<AdminLayout />}>
                             <Route index element={<AdminDashboard />} />
-                            <Route
-                                path="dashboard"
-                                element={<AdminDashboard />}
-                            />
-                            <Route
-                                path="schedule"
-                                element={<AdminSchedule />}
-                            />
-                            <Route
-                                path="schedule/new"
-                                element={<AdminCreateTrip />}
-                            />
+                            <Route path="dashboard" element={<AdminDashboard />} />
+                            <Route path="schedule" element={<AdminSchedule />} />
+                            <Route path="schedule/new" element={<AdminCreateTrip />} />
                             <Route path="menu" element={<AdminMenu />} />
                         </Route>
-                        <Route
-                            path="/admin/kitchen/:slotId"
-                            element={<KitchenBoard />}
-                        />
+                        <Route path="/admin/runner/:slotId" element={<RunnerBoard />} />
                     </Route>
                 </Routes>
             </div>

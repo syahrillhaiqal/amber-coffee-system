@@ -1,17 +1,15 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Coffee, AlertCircle, Loader2, Lock, Mail } from "lucide-react";
+import { AlertCircle, Loader2, Lock, Mail } from "lucide-react";
 import { signInWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
 import { auth } from "../../lib/firebase";
+import logo from "../../assets/amber-coffee-logo-only.png";
 
 export default function AdminLogin() {
-    const navigate = useNavigate();
 
-    // Form State
+    const navigate = useNavigate();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
-
-    // UI State
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
     const [isChecking, setIsChecking] = useState(true);
@@ -34,20 +32,17 @@ export default function AdminLogin() {
             }
         });
         return () => unsubscribe();
-    }, [navigate]); // You can remove ALLOWED_EMAILS from dependency since it's constant
+    }, [navigate]);
 
     // Handle Login Submission
     const handleLogin = async (e) => {
+
         e.preventDefault(); 
         setLoading(true);
         setError("");
 
         try {
-            const userCredential = await signInWithEmailAndPassword(
-                auth,
-                email,
-                password
-            );
+            const userCredential = await signInWithEmailAndPassword(auth, email, password);
             const user = userCredential.user;
 
             // Check if this user is actually allowed
@@ -55,7 +50,8 @@ export default function AdminLogin() {
                 navigate("/admin/dashboard", { replace: true });
             } else {
                 setError("Access Denied: You are not an Admin.");
-                // Vital: Logout immediately if they are not admin
+
+                // Logout immediately if they are not admin
                 auth.signOut();
             }
         } catch (err) {
@@ -72,7 +68,6 @@ export default function AdminLogin() {
         }
     };
 
-    // --- VIEW ---
     if (isChecking) {
         return (
             <div className="min-h-screen bg-secondary flex flex-col items-center justify-center p-4">
@@ -86,11 +81,11 @@ export default function AdminLogin() {
             <div className="bg-white p-8 rounded-3xl shadow-xl w-full max-w-sm space-y-6">
                 {/* Header */}
                 <div className="text-center space-y-2">
-                    <div className="bg-primary/10 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto text-primary">
-                        <Coffee size={32} />
+                    <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto text-primary">
+                        <img src={logo} alt="Logo" className="h-16 w-auto" />
                     </div>
                     <h1 className="text-2xl font-bold text-gray-900">
-                        Admin Portal
+                        Amber Admin
                     </h1>
                     <p className="text-gray-500 text-sm">
                         Please login to continue

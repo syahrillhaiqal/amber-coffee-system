@@ -1,37 +1,14 @@
 import { useState, useEffect } from "react";
 import { useParams, Link, useLocation, useNavigate } from "react-router-dom";
-import {
-    ArrowLeft,
-    CheckCircle,
-    Truck,
-    RotateCcw,
-    Trash2,
-    Clock,
-    MapPin,
-    Eye,
-    X,
-    Package,
-    ClipboardList,
-    PenTool,
-    Coffee,
-    ChevronDown,
-    ChevronUp,
-} from "lucide-react";
-import {
-    collection,
-    query,
-    where,
-    onSnapshot,
-    updateDoc,
-    deleteDoc,
-    doc,
-    writeBatch,
-    getDoc,
-} from "firebase/firestore";
-import { db } from "../../lib/firebase";
+import { ArrowLeft, CheckCircle, Truck, RotateCcw, Trash2, Clock, MapPin, Eye, X, Package, ClipboardList, PenTool, Coffee, ChevronDown, ChevronUp } from "lucide-react";
+import { subscribeToOrdersBySlot, updateOrderStatus, deleteOrder, batchUpdateOrderStatuses } from "../../services/orderService";
+import { getSlotById } from "../../services/slotService";
+import RunnerCard from "../../components/RunnerCard";
+import LocationBatchCard from "../../components/LocationBatchCard";
 
-export default function KitchenBoard() {
-    const { slotId } = useParams();
+export default function RunnerBoard() {
+
+    const {slotId} = useParams();
     const [orders, setOrders] = useState([]);
     const [slotInfo, setSlotInfo] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -42,56 +19,25 @@ export default function KitchenBoard() {
     const location = useLocation();
     const navigate = useNavigate();
 
-    useEffect(() => {
-        const fetchSlotInfo = async () => {
-            try {
-                const slotDoc = await getDoc(doc(db, "delivery_slots", slotId));
-                if (slotDoc.exists()) setSlotInfo(slotDoc.data());
-            } catch (error) {
-                console.error(error);
-            }
-        };
-        fetchSlotInfo();
-
-        const q = query(
-            collection(db, "orders"),
-            where("slotId", "==", slotId)
-        );
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            let ordersData = snapshot.docs.map((doc) => ({
-                id: doc.id,
-                ...doc.data(),
-            }));
-            ordersData = ordersData.filter(
-                (order) =>
-                    order.status !== "PENDING_PAYMENT" &&
-                    order.status !== "CANCELLED"
-            );
-
-            ordersData.sort(
-                (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
-            );
-            setOrders(ordersData);
-            setLoading(false);
-        });
-        return () => unsubscribe();
-    }, [slotId]);
-
     const updateStatus = async (orderId, newStatus) => {
         try {
-            await updateDoc(doc(db, "orders", orderId), { status: newStatus });
+            await updateOrderStatus(orderId, newStatus);
         } catch (error) {
-            console.error(error);
+            console.error("Error updating status:", error);
         }
     };
 
-    const deleteOrder = async (orderId) => {
-        if (confirm("Delete this order?"))
-            await deleteDoc(doc(db, "orders", orderId));
+    const deleteOrderHandler = async (orderId) => {
+        if (confirm("Delete this order?")) {
+            try {
+                await deleteOrder(orderId);
+            } catch (error) {
+                console.error("Error deleting order:", error);
+            }
+        }
     };
 
     const handleBack = () => {
-        // Navigate back to schedule, passing the 'previousViewMode' as 'restoredViewMode'
         navigate("/admin/schedule", {
             state: { 
                 restoredViewMode: location.state?.previousViewMode || "upcoming" 
@@ -101,13 +47,12 @@ export default function KitchenBoard() {
 
     const confirmBatchDelivery = async () => {
         if (!runnerManifest) return;
-        const batch = writeBatch(db);
-        runnerManifest.orders.forEach((order) => {
-            const ref = doc(db, "orders", order.id);
-            batch.update(ref, { status: "DELIVERY" });
-        });
-        await batch.commit();
-        setRunnerManifest(null);
+        try {
+            await batchUpdateOrderStatuses(runnerManifest.orders, "DELIVERY");
+            setRunnerManifest(null);
+        } catch (error) {
+            console.error("Error confirming batch delivery:", error);
+        }
     };
 
     const formatTripTime = (isoString) => {
@@ -116,175 +61,17 @@ export default function KitchenBoard() {
             hour: "2-digit",
             minute: "2-digit",
         });
-    };
+    };    
 
-    // --- LOCATION BATCH CARD ---
-    const LocationBatchCard = ({ location, groupOrders }) => {
-        const [isExpanded, setIsExpanded] = useState(false);
-        return (
-            <div className="bg-white rounded-xl shadow-md border-l-8 border-blue-500 overflow-hidden mb-4 animate-fade-in">
-                <div
-                    className="p-4 bg-blue-50 flex justify-between items-center cursor-pointer"
-                    onClick={() => setIsExpanded(!isExpanded)}
-                >
-                    <div>
-                        <h3 className="font-black text-lg text-stone-800 flex items-center gap-2">
-                            <MapPin size={20} className="text-blue-600" />{" "}
-                            {location}
-                        </h3>
-                        <p className="text-xs font-bold text-blue-600 uppercase tracking-wider">
-                            {groupOrders.length} Orders Ready
-                        </p>
-                    </div>
-                    {isExpanded ? (
-                        <ChevronUp size={20} className="text-blue-400" />
-                    ) : (
-                        <ChevronDown size={20} className="text-blue-400" />
-                    )}
-                </div>
-                {isExpanded && (
-                    <div className="bg-white border-t border-blue-100">
-                        {groupOrders.map((order, i) => (
-                            <div
-                                key={order.id}
-                                className="p-3 border-b border-stone-100 last:border-0 flex justify-between items-center text-sm"
-                            >
-                                <div className="flex gap-2">
-                                    <span className="font-mono text-stone-400 font-bold">
-                                        #{order.orderId}
-                                    </span>
-                                    <span className="font-bold text-stone-800">
-                                        {order.customerName}
-                                    </span>
-                                </div>
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        updateStatus(order.id, "PREPARING");
-                                    }}
-                                    className="text-stone-400 hover:text-red-500"
-                                >
-                                    <RotateCcw size={14} />
-                                </button>
-                            </div>
-                        ))}
-                    </div>
-                )}
-                <div className="p-3 bg-white border-t border-stone-100">
-                    <button
-                        onClick={() =>
-                            setRunnerManifest({ location, orders: groupOrders })
-                        }
-                        className="w-full py-3 bg-blue-600 text-white rounded-lg font-bold flex justify-center items-center gap-2 shadow-lg hover:bg-blue-700 active:scale-95 transition-all"
-                    >
-                        <Truck size={18} /> DELIVER BATCH ({groupOrders.length})
-                    </button>
-                </div>
-            </div>
-        );
-    };
-
-    // --- RUNNER CARD ---
-    const RunnerCard = ({
-        order,
-        actionBtn,
-        secondaryBtn,
-        accentColor,
-        isCompleted,
-    }) => (
-        <div
-            className={`bg-white rounded-xl shadow-md border-l-8 overflow-hidden flex flex-col mb-3 animate-fade-in ${
-                isCompleted ? "opacity-60 grayscale" : ""
-            }`}
-            style={{ borderLeftColor: accentColor }}
-        >
-            <div
-                className="p-3 bg-stone-50 border-b border-stone-100 flex justify-between items-center"
-                onClick={() => setSelectedOrder(order)}
-            >
-                <div className="flex items-center gap-2">
-                    <span className="font-mono font-bold text-lg text-stone-700">
-                        #{order.orderId}
-                    </span>
-                    <span className="text-[10px] font-black bg-stone-800 text-white px-2 py-1 rounded uppercase tracking-wide flex items-center gap-1">
-                        <MapPin size={10} /> {order.pickupPoint}
-                    </span>
-                </div>
-                <div className="text-xs font-bold text-stone-400">
-                    {new Date(order.createdAt).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                    })}
-                </div>
-            </div>
-            <div
-                className="p-4 flex-1 space-y-2 cursor-pointer"
-                onClick={() => setSelectedOrder(order)}
-            >
-                <div className="font-bold text-stone-800 text-sm">
-                    {order.customerName}
-                </div>
-                {order.items.map((item, idx) => (
-                    <div
-                        key={idx}
-                        className="border-b border-stone-100 pb-1 mb-1 last:border-0 last:pb-0"
-                    >
-                        <div className="flex justify-between items-start leading-tight">
-                            <div className="flex gap-2">
-                                <span className="font-black text-stone-900">
-                                    {item.quantity}x
-                                </span>
-                                <div>
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                        <span className="text-stone-700 text-sm font-bold">
-                                            {item.name}
-                                        </span>
-
-                                        {/* --- NEW: PROTECTION BADGE --- */}
-                                        <span
-                                            className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase border ${
-                                                item.protection === "premium"
-                                                    ? "bg-purple-50 text-purple-700 border-purple-200"
-                                                    : "bg-blue-50 text-blue-700 border-blue-200"
-                                            }`}
-                                        >
-                                            {item.protection || "Basic"}
-                                        </span>
-                                    </div>
-
-                                    <div className="flex gap-1 flex-wrap mt-0.5">
-                                        {/* Sugar Level */}
-                                        {item.sugarLevel && (
-                                            <span className="text-[10px] bg-green-100 text-green-700 font-bold px-1.5 py-0.5 rounded">
-                                                {item.sugarLevel}
-                                            </span>
-                                        )}
-                                        {/* Addon */}
-                                        {item.addon && (
-                                            <span className="text-[10px] bg-orange-100 text-orange-700 font-bold px-1.5 py-0.5 rounded">
-                                                +{item.addon}
-                                            </span>
-                                        )}
-                                    </div>
-
-                                    {item.remark && (
-                                        <p className="mt-1 text-red-600 font-bold text-xs bg-red-50 p-1 px-2 rounded inline-block">
-                                            {item.remark}
-                                        </p>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                ))}
-            </div>
-            <div className="p-2 bg-stone-50 border-t border-stone-100 grid grid-cols-4 gap-2">
-                {secondaryBtn}
-                <div className="col-span-3">{actionBtn}</div>
-            </div>
-        </div>
-    );
-
+    const formatDisplayDate = (dateString) => {
+        if (!dateString) return "";
+        return new Date(dateString).toLocaleDateString('en-GB', {
+            day: '2-digit', 
+            month: 'short', 
+            year: 'numeric'
+        });
+    }
+    
     const readyGroups = orders
         .filter((o) => o.status === "READY")
         .reduce((acc, order) => {
@@ -296,10 +83,45 @@ export default function KitchenBoard() {
     const receivedList = orders.filter((o) => o.status === "RECEIVED");
     const prepList = orders.filter((o) => o.status === "PREPARING");
     const deliveryList = orders.filter((o) => o.status === "DELIVERY");
-    const completedList = orders.filter((o) => o.status === "COMPLETED"); // Keep completed orders
+    const completedList = orders.filter((o) => o.status === "COMPLETED");
 
-    // Merge 'DELIVERY' and 'COMPLETED' for the 4th column
     const outList = [...deliveryList, ...completedList];
+
+    useEffect(() => {
+        const fetchSlotInfo = async () => {
+            try {
+                const slotData = await getSlotById(slotId);
+                if (slotData) setSlotInfo(slotData);
+            } catch (error) {
+                console.error("Error fetching slot info:", error);
+            }
+        };
+        fetchSlotInfo();
+
+        const unsubscribe = subscribeToOrdersBySlot(
+            slotId,
+            (ordersData) => {
+                let ordersData_filtered = ordersData.filter(
+                    (order) =>
+                        order.status !== "PENDING_PAYMENT" &&
+                        order.status !== "CANCELLED"
+                );
+
+                ordersData_filtered.sort(
+                    (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
+                );
+                setOrders(ordersData_filtered);
+                setLoading(false);
+            },
+            (error) => {
+                console.error("Subscription error:", error);
+                setLoading(false);
+            }
+        );
+        return () => unsubscribe();
+    }, [slotId]);
+
+    
 
     return (
         <div className="h-screen flex flex-col bg-stone-900 text-stone-100 font-sans overflow-hidden">
@@ -313,20 +135,20 @@ export default function KitchenBoard() {
                         <ArrowLeft size={20} />
                     </button>
                     <div>
-                        <h1 className="text-lg font-black text-white leading-tight">
-                            RUNNER BOARD
-                        </h1>
-                        <p className="text-xs text-stone-400 font-bold uppercase tracking-wider flex items-center gap-1">
-                            {slotInfo ? (
-                                <>
-                                    <Clock size={12} className="text-white" />
-                                    <span className="text-white">
-                                        Trip{" "}
-                                        {formatTripTime(slotInfo.deliveryTime)}
-                                    </span>
-                                </>
-                            ) : null}
-                        </p>
+                        {slotInfo ? (
+                            <>
+                            <h1 className="text-lg font-black text-white leading-tight">
+                                {formatDisplayDate(slotInfo.dateString)}
+                            </h1>
+                            <p className="text-xs text-stone-400 font-bold uppercase tracking-wider flex items-center gap-1">
+                                <Clock size={12} className="text-white" />
+                                <span className="text-white">
+                                    Trip{" "}
+                                    {formatTripTime(slotInfo.deliveryTime)}
+                                </span>
+                            </p>
+                            </>
+                        ) : null}
                     </div>
                 </div>
                 <div className="flex flex-col items-end">
@@ -345,8 +167,7 @@ export default function KitchenBoard() {
                     let count = 0;
                     if (tab === "WRITE") count = receivedList.length;
                     if (tab === "PREP") count = prepList.length;
-                    if (tab === "READY")
-                        count = Object.values(readyGroups).flat().length;
+                    if (tab === "READY") count = Object.values(readyGroups).flat().length;
                     if (tab === "OUT") count = deliveryList.length; // Count only active delivery, not completed
 
                     const isActive = activeTab === tab;
@@ -400,7 +221,7 @@ export default function KitchenBoard() {
                                         secondaryBtn={
                                             <button
                                                 onClick={() =>
-                                                    deleteOrder(order.id)
+                                                    deleteOrderHandler(order.id)
                                                 }
                                                 className="btn-icon bg-stone-200 text-red-600"
                                             >
@@ -424,6 +245,7 @@ export default function KitchenBoard() {
                                                 />
                                             </button>
                                         }
+                                        setSelectedOrder={setSelectedOrder}
                                     />
                                 ))}
                                 {receivedList.length === 0 && (
@@ -512,6 +334,8 @@ export default function KitchenBoard() {
                                             key={location}
                                             location={location}
                                             groupOrders={groupOrders}
+                                            updateStatus={updateStatus}
+                                            setRunnerManifest={setRunnerManifest}
                                         />
                                     )
                                 )}
@@ -594,6 +418,7 @@ export default function KitchenBoard() {
             </div>
 
             {/* --- MODALS --- */}
+            {/* Delivery Modal */}
             {runnerManifest && (
                 <div
                     className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
@@ -638,7 +463,6 @@ export default function KitchenBoard() {
                                                 .join(", ")}
                                         </div>
                                     </div>
-                                    {/* REMOVED TICK/CHECKBOX */}
                                 </div>
                             ))}
                         </div>
@@ -660,18 +484,16 @@ export default function KitchenBoard() {
                 </div>
             )}
 
-            {/* --- UPDATED ORDER DETAIL MODAL --- */}
+            {/* Order Modal */}
             {selectedOrder && (
                 <div
                     className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in"
                     onClick={() => setSelectedOrder(null)}
                 >
-                    {/* 1. Added max-h-[90dvh] and flex flex-col */}
                     <div
                         className="bg-white w-full max-w-lg rounded-2xl overflow-hidden shadow-2xl animate-scale-up flex flex-col max-h-[90dvh]"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        {/* Header (Fixed) */}
                         <div className="bg-stone-100 p-4 border-b flex justify-between items-center shrink-0">
                             <div>
                                 <h2 className="text-xl font-bold text-stone-800">
@@ -689,8 +511,6 @@ export default function KitchenBoard() {
                             </button>
                         </div>
 
-                        {/* Content Area (Scrollable) */}
-                        {/* 2. Added flex-1 overflow-y-auto */}
                         <div className="p-6 space-y-6 text-stone-900 flex-1 overflow-y-auto overscroll-contain">
                             {/* Customer Details */}
                             <div className="grid grid-cols-2 gap-4">
@@ -743,8 +563,6 @@ export default function KitchenBoard() {
                                                         <span className="font-bold text-stone-800">
                                                             {item.name}
                                                         </span>
-
-                                                        {/* --- NEW: PROTECTION BADGE (Modal) --- */}
                                                         <span
                                                             className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase border ${
                                                                 item.protection ===
@@ -794,11 +612,11 @@ export default function KitchenBoard() {
                             </div>
                         </div>
 
-                        {/* Footer Action (Fixed) */}
+                        {/* Footer Action */}
                         <div className="p-4 bg-white border-t border-stone-100 shrink-0">
                             <button
                                 onClick={() => {
-                                    deleteOrder(selectedOrder.id);
+                                    deleteOrderHandler(selectedOrder.id);
                                     setSelectedOrder(null);
                                 }}
                                 className="w-full py-3 text-red-500 font-bold border border-red-100 rounded-xl hover:bg-red-50 transition-colors"

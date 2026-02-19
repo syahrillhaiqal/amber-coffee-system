@@ -1,74 +1,31 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Calendar, Clock, Package, AlertCircle, Loader2 } from "lucide-react";
-import { collection, onSnapshot, query, where } from "firebase/firestore";
+import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 import logo from "../../assets/amber-coffee-logo-only.png";
+import { getTodayString, formatDisplayDate, formatTime } from "../../lib/date";
+import { getTripStatus, getRemainingCups, getFilledCups } from "../../lib/trip";
+import { saveCurrentTrip } from "../../lib/storage";
+import { subscribeToSlotsByDate } from "../../services/slotService";
 
 export default function TripSelection() {
+
     const [trips, setTrips] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    // Force Malaysia Timezone
-    const getMalaysiaDateString = () => {
-        return new Date().toLocaleDateString("en-CA", {
-            timeZone: "Asia/Kuala_Lumpur",
-        });
-    };
-
-    const today = getMalaysiaDateString();
-
-    const displayDate = new Date().toLocaleDateString("en-GB", {
-        weekday: "long",
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-        timeZone: "Asia/Kuala_Lumpur",
-    });
+    const today = getTodayString();
+    const displayDate = formatDisplayDate();
 
     useEffect(() => {
-        setLoading(true);
-
-        // 1. Listen to Slots
-        const slotsQuery = query(
-            collection(db, "delivery_slots"),
-            where("dateString", "==", today)
-        );
-
-        const unsubSlots = onSnapshot(slotsQuery, (slotsSnapshot) => {
-            const todaysTrips = slotsSnapshot.docs.map((doc) => ({
-                id: doc.id,
-                ...doc.data(),
-            }));
-
-            // 2. Listen to Orders
+        const unsubSlots = subscribeToSlotsByDate(today, (todaysTrips) => {
             const unsubOrders = onSnapshot(
                 collection(db, "orders"),
                 (ordersSnapshot) => {
-                    const allOrders = ordersSnapshot.docs.map((doc) =>
-                        doc.data()
-                    );
+                    const allOrders = ordersSnapshot.docs.map(doc => doc.data());
 
-                    // 3. Merge
-                    const tripsWithCapacity = todaysTrips.map((trip) => {
-                        const validOrders = allOrders.filter(
-                            (o) =>
-                                o.slotId === trip.id &&
-                                o.status !== "CANCELLED" &&
-                                o.status !== "PENDING_PAYMENT"
-                        );
-
-                        const filledCups = validOrders.reduce(
-                            (total, order) => {
-                                const orderCups = order.items.reduce(
-                                    (sum, item) => sum + item.quantity,
-                                    0
-                                );
-                                return total + orderCups;
-                            },
-                            0
-                        );
-
+                    const tripsWithCapacity = todaysTrips.map(trip => {
+                        const filledCups = getFilledCups(allOrders, trip.id);
                         return { ...trip, filledCups };
                     });
 
@@ -86,39 +43,6 @@ export default function TripSelection() {
 
         return () => unsubSlots();
     }, [today]);
-
-    const getTripStatus = (trip) => {
-        const now = new Date();
-        const open = new Date(trip.openTime);
-        const close = new Date(trip.cutoffTime);
-
-        const isFull = trip.filledCups >= trip.maxCapacity;
-
-        if (isFull)
-            return {
-                text: "FULL",
-                color: "bg-red-100 text-red-600",
-                active: false,
-            };
-        if (now >= close)
-            return {
-                text: "Closed",
-                color: "bg-stone-200 text-stone-500",
-                active: false,
-            };
-        if (now < open)
-            return {
-                text: "Opens Soon",
-                color: "bg-blue-100 text-blue-600",
-                active: false,
-            };
-
-        return {
-            text: "Open Now",
-            color: "bg-green-100 text-green-700",
-            active: true,
-        };
-    };
 
     return (
         <div className="px-4 py-6 max-w-md mx-auto min-h-screen bg-stone-100">
@@ -161,36 +85,15 @@ export default function TripSelection() {
                 ) : (
                     trips.map((trip) => {
                         const status = getTripStatus(trip);
-                        const timeStr = new Date(
-                            trip.deliveryTime
-                        ).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            hour12: true,
-                        });
-                        const openStr = new Date(
-                            trip.openTime
-                        ).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            hour12: true,
-                        });
-                        const cutoffStr = new Date(
-                            trip.cutoffTime
-                        ).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            hour12: true,
-                        });
-
-                        const remainingCups = Math.max(
-                            0,
-                            trip.maxCapacity - trip.filledCups
-                        );
+                        const timeStr = formatTime(trip.deliveryTime);
+                        const openStr = formatTime(trip.openTime);
+                        const cutoffStr = formatTime(trip.cutoffTime);
+                        const remainingCups = getRemainingCups(trip);
 
                         const isLowStock =
                             remainingCups <= 5 && remainingCups > 0;
 
+                        // The state give to "../menu" the state, which is an object (trip data)
                         return (
                             <Link
                                 key={trip.id}
@@ -201,23 +104,13 @@ export default function TripSelection() {
                                               tripId: trip.id,
                                               name: timeStr,
                                               time: timeStr,
-                                              selectedMenuIds:
-                                                  trip.selectedMenuIds,
+                                              selectedMenuIds: trip.selectedMenuIds,
                                           }
                                         : null
                                 }
                                 onClick={() => {
                                     if (status.active) {
-                                        localStorage.setItem(
-                                            "currentTrip",
-                                            JSON.stringify({
-                                                tripId: trip.id,
-                                                name: timeStr,
-                                                time: timeStr,
-                                                selectedMenuIds:
-                                                    trip.selectedMenuIds,
-                                            })
-                                        );
+                                        saveCurrentTrip({ tripId: trip.id, name: timeStr, time: timeStr, selectedMenuIds: trip.selectedMenuIds });
                                     }
                                 }}
                                 className={`block group transition-transform active:scale-[0.98] ${
@@ -253,6 +146,7 @@ export default function TripSelection() {
                                     </div>
 
                                     {/* SECTION 2: Capacity Info */}
+                                    {status.text !== "Closed" && (
                                     <div className="mb-3">
                                         <div
                                             className={`flex items-center justify-between p-2 rounded-lg border ${
@@ -294,6 +188,7 @@ export default function TripSelection() {
                                             </span>
                                         </div>
                                     </div>
+                                    )}
 
                                     {/* SECTION 3: Order Window Times */}
                                     <div className="pt-2.5 border-t border-gray-100 space-y-1.5">

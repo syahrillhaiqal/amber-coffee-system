@@ -1,36 +1,21 @@
 import { useState, useEffect, useRef } from "react";
-import {
-    Search,
-    ShoppingBag,
-    Star,
-    Flame,
-    Loader2,
-    X,
-    Gift,
-    ArrowRight,
-} from "lucide-react";
+import {Search, ShoppingBag, Star, Flame, Loader2, X, Gift, ArrowRight, ImageIcon} from "lucide-react";
 import ProductModal from "../../components/ProductModal";
 import CartDrawer from "../../components/CartDrawer";
 import { useLocation, Link, useNavigate } from "react-router-dom";
-import { collection, getDocs } from "firebase/firestore";
-import { db } from "../../lib/firebase";
 import logo from "../../assets/amber-coffee-logo-only.png";
+import { loadCurrentTrip } from "../../lib/storage";
+import { getMenuItemsByIds } from "../../services/menuService";
 
-export default function MenuPage({
-    addToCart,
-    removeFromCart,
-    cart,
-    updateCartItemProtection,
-}) {
+const categories = ["Recommended", "Coffee", "Matcha", "Chocolate", "Refresher", "Pastry", "Food"];
+
+export default function MenuPage({addToCart, removeFromCart, cart, updateCartItemProtection}) {
+
+    // props : like parameters, from component to component
+    // location.state : almost the same, but came from page to page
+
     const location = useLocation();
     const navigate = useNavigate();
-
-    const [tripInfo, setTripInfo] = useState(() => {
-        return (
-            location.state || JSON.parse(sessionStorage.getItem("currentTrip"))
-        );
-    });
-
     const tabsRef = useRef(null);
 
     const [allItems, setAllItems] = useState([]);
@@ -39,51 +24,11 @@ export default function MenuPage({
     const [selectedItem, setSelectedItem] = useState(null);
     const [isCartOpen, setIsCartOpen] = useState(false);
     const [activeCategory, setActiveCategory] = useState("Recommended");
-
-    // NEW: Modal State
     const [showUpsellModal, setShowUpsellModal] = useState(false);
-
-    // Fetch Menu
-    useEffect(() => {
-        if (!tripInfo) {
-            navigate("/trip");
-            return;
-        }
-
-        const fetchMenu = async () => {
-            setLoading(true);
-            try {
-                const snapshot = await getDocs(collection(db, "menu_items"));
-                const data = snapshot.docs.map((doc) => ({
-                    id: doc.id,
-                    ...doc.data(),
-                }));
-                const allowedIds = tripInfo?.selectedMenuIds || [];
-
-                const available = data.filter(
-                    (item) => allowedIds.includes(item.id) && item.isAvailable
-                );
-                setAllItems(available);
-            } catch (error) {
-                console.error("Error fetching menu:", error);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchMenu();
-    }, [tripInfo, navigate]);
-
-    // Grouping Logic
-    const categories = [
-        "Recommended",
-        "Coffee",
-        "Matcha",
-        "Chocolate",
-        "Refresher",
-        "Pastry",
-        "Food",
-    ];
-
+    const [tripInfo, setTripInfo] = useState(() => {
+        return location.state || loadCurrentTrip();
+    });
+    
     const getGroupedItems = () => {
         let filtered = allItems.filter((item) =>
             item.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -99,6 +44,56 @@ export default function MenuPage({
     };
 
     const groupedItems = getGroupedItems();
+
+    const scrollToCategory = (cat) => {
+        setActiveCategory(cat);
+        const element = document.getElementById(`cat-${cat}`);
+        if (element) {
+            const y =
+                element.getBoundingClientRect().top + window.scrollY - 140;
+            window.scrollTo({ top: y, behavior: "smooth" });
+        }
+    };
+
+    const currentCups = cart.reduce((sum, item) => sum + item.quantity, 0);
+
+    const handleAddToCartWrapper = (item, qty, remark) => {
+        addToCart(item, qty, remark);
+
+        // UPSELL LOGIC: If total becomes 1, show modal
+        if (currentCups === 0 && qty === 1) {
+            setShowUpsellModal(true);
+        }
+    };
+
+    // Fetch Menu
+    useEffect(() => {
+        if (!tripInfo) {
+            navigate("/trip");
+            return;
+        }
+
+        const fetchMenu = async () => {
+
+            setLoading(true);            
+            try {
+                const availableMenuIds = tripInfo?.selectedMenuIds || [];
+                
+                const availableItems = await getMenuItemsByIds(
+                    availableMenuIds, 
+                    true  // only available items
+                );
+                
+                setAllItems(availableItems);
+
+            } catch (error) {
+                console.error("Error fetching menu:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchMenu();
+    }, [tripInfo, navigate]);
 
     // Scroll Sync
     useEffect(() => {
@@ -121,7 +116,7 @@ export default function MenuPage({
 
         window.addEventListener("scroll", handleScroll);
         return () => window.removeEventListener("scroll", handleScroll);
-    }, [categories]);
+    });
 
     // Auto Scroll Tabs
     useEffect(() => {
@@ -137,42 +132,21 @@ export default function MenuPage({
         }
     }, [activeCategory]);
 
-    const scrollToCategory = (cat) => {
-        setActiveCategory(cat);
-        const element = document.getElementById(`cat-${cat}`);
-        if (element) {
-            const y =
-                element.getBoundingClientRect().top + window.scrollY - 140;
-            window.scrollTo({ top: y, behavior: "smooth" });
-        }
-    };
-
     if (loading) {
         return (
-                    <div className="flex flex-col items-center justify-center min-h-[60vh] text-gray-400 gap-2">
-                        <img
-                            src={logo}
-                            alt="Logo"
-                            className="h-14 w-auto mb-2"
-                        />
-                        <div className="flex items-center gap-2 font-medium">
-                            <Loader2 className="animate-spin w-5 h-5 text-primary" />
-                            <span>Loading...</span>
-                        </div>
+                <div className="flex flex-col items-center justify-center min-h-[60vh] text-gray-400 gap-2">
+                    <img
+                        src={logo}
+                        alt="Logo"
+                        className="h-14 w-auto mb-2"
+                    />
+                    <div className="flex items-center gap-2 font-medium">
+                        <Loader2 className="animate-spin w-5 h-5 text-primary" />
+                        <span>Loading...</span>
                     </div>
+                </div>
         );
     }
-
-    const currentCups = cart.reduce((sum, item) => sum + item.quantity, 0);
-
-    const handleAddToCartWrapper = (item, qty, remark) => {
-        addToCart(item, qty, remark);
-
-        // UPSELL LOGIC: If total becomes 1, show modal
-        if (currentCups === 0 && qty === 1) {
-            setShowUpsellModal(true);
-        }
-    };
 
     return (
         <div className="pb-24">
@@ -279,17 +253,21 @@ export default function MenuPage({
                                             }
                                             className="flex bg-white p-3 rounded-2xl shadow-sm border border-gray-100 active:scale-[0.98] transition-transform cursor-pointer"
                                         >
+                                            {item.image ? (
                                             <img
                                                 src={item.image}
                                                 alt={item.name}
                                                 className="w-24 h-24 object-cover rounded-xl bg-gray-100"
                                             />
+                                            ) : (
+                                                <div className="w-24 h-24 object-cover rounded-xl bg-stone-100 flex items-center justify-center text-stone-400">
+                                                    <ImageIcon size={24} />
+                                                </div>
+                                            )}
 
-                                            {/* FIX: Added 'min-w-0' here. This stops the text overflow. */}
+
                                             <div className="ml-4 flex-1 min-w-0 flex flex-col justify-between py-1">
                                                 <div>
-                                                    {/* Added 'truncate' to cut off very long titles with '...' */}
-                                                    {/* OR remove 'truncate' if you want it to wrap to the next line */}
                                                     <p className="text-sm font-bold text-gray-900">
                                                         {item.name}
                                                     </p>
@@ -344,7 +322,7 @@ export default function MenuPage({
                 />
             )}
 
-            {/* --- NEW: UPSELL POPUP MODAL --- */}
+            {/* UPSELL POPUP MODAL */}
             {showUpsellModal && (
                 <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
                     <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-scale-up text-center relative overflow-hidden">

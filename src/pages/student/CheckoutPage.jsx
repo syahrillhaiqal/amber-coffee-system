@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, MapPin, Loader2, Truck, Mail, Gift, ShoppingBag } from "lucide-react"; 
-import { collection, addDoc, doc, getDoc, query, where, getDocs } from "firebase/firestore";
-import { db } from "../../lib/firebase";
 import axios from "axios";
+import { calcDeliveryFee } from "../../lib/pricing";
+import { createOrder, getFilledCupsForSlot } from "../../services/orderService";
+import { getSlotById } from "../../services/slotService";
 
 export default function CheckoutPage({ clearCart }) { 
+
     const navigate = useNavigate();
     const location = useLocation();
     
@@ -14,10 +16,7 @@ export default function CheckoutPage({ clearCart }) {
     const cartCups = cart ? cart.reduce((sum, item) => sum + item.quantity, 0) : 0;
 
     const [loading, setLoading] = useState(false);
-    
-    // NEW: Upsell Modal State
     const [showUpsellModal, setShowUpsellModal] = useState(false);
-
     const [formData, setFormData] = useState({
         name: "",
         phone: "",
@@ -26,30 +25,11 @@ export default function CheckoutPage({ clearCart }) {
         address: "",
     });
 
-    // --- UPDATED DELIVERY FEE LOGIC ---
-    const getFinalDeliveryFee = (pickupPoint) => {
-        const point = pickupPoint || formData.pickupPoint;
-
-        // 1. NR Logic: RM3.00 Base, Free if 5+ cups
-        if (point === "NR") {
-            if (cartCups >= 5) return 0;
-            return 3.00;
-        }
-
-        // 2. Standard Logic: RM1.00 Base, Free if >1 cup
-        if (cartCups > 1) {
-            return 0;
-        } else {
-            return 1.00;
-        }
-    }
-
-    // Calculate current fee based on state
-    const finalDeliveryFee = getFinalDeliveryFee(formData.pickupPoint);
+    const finalDeliveryFee = calcDeliveryFee(formData.pickupPoint, cartCups);
 
     const finalTotal = (subTotal || 0) + (protectionFee || 0) + finalDeliveryFee;
 
-    // --- NEW: Handle Dropdown Change ---
+    // Handle Dropdown Change
     const handleLocationChange = (e) => {
         const newLocation = e.target.value;
         setFormData({ ...formData, pickupPoint: newLocation });
@@ -61,10 +41,10 @@ export default function CheckoutPage({ clearCart }) {
     };
 
     const handleAddMoreItems = () => {
-        // Navigate back to menu with current trip state so they can add items
         navigate('/menu', { state: tripInfo });
     };
 
+    /* --- VALIDATION LOGIC --- */
     const isValidPhone = (phone) => {
         return /^[0-9]{9,15}$/.test(phone);
     };
@@ -86,15 +66,12 @@ export default function CheckoutPage({ clearCart }) {
         if (!tripInfo?.tripId) return false;
 
         try {
-            const tripRef = doc(db, "delivery_slots", tripInfo.tripId);
-            const tripSnap = await getDoc(tripRef);
-
-            if (!tripSnap.exists()) {
+            const tripData = await getSlotById(tripInfo.tripId);
+            if (!tripData) {
                 alert("This trip no longer exists.");
                 return false;
             }
 
-            const tripData = tripSnap.data();
             const now = new Date();
             const cutoff = new Date(tripData.cutoffTime);
 
@@ -104,18 +81,7 @@ export default function CheckoutPage({ clearCart }) {
                 return false;
             }
 
-            const q = query(collection(db, "orders"), where("slotId", "==", tripInfo.tripId));
-            const ordersSnap = await getDocs(q);
-            
-            let currentFilledCups = 0;
-            ordersSnap.forEach(doc => {
-                const data = doc.data();
-                if (data.status !== 'CANCELLED' && data.status !== 'PENDING_PAYMENT') {
-                    const orderCupCount = data.items.reduce((s, i) => s + i.quantity, 0);
-                    currentFilledCups += orderCupCount;
-                }
-            });
-
+            const currentFilledCups = await getFilledCupsForSlot(tripInfo.tripId);
             const availableSlots = tripData.maxCapacity - currentFilledCups;
 
             if (cartCups > availableSlots) {
@@ -131,6 +97,7 @@ export default function CheckoutPage({ clearCart }) {
         }
     };
 
+    // Payment handling
     const handlePayment = async () => {
         if (!formData.name || !formData.phone || !formData.email) return alert("Please fill in Name, Phone, and Email.");
         if (!isValidPhone(formData.phone)) return alert("Please enter a valid phone number.");
@@ -151,6 +118,8 @@ export default function CheckoutPage({ clearCart }) {
             const shortId = generateOrderId();
             const FUNCTION_URL = import.meta.env.VITE_PAYMENT_FUNCTION_URL;
 
+            // axios : library to send http request
+            // This part we send http request to our cloud function
             const response = await axios.post(FUNCTION_URL, {
                 orderId: shortId,
                 customerName: formData.name,
@@ -184,7 +153,7 @@ export default function CheckoutPage({ clearCart }) {
                 createdAt: new Date().toISOString(),
             };
 
-            await addDoc(collection(db, "orders"), orderPayload);
+            await createOrder(orderPayload);
             window.location.href = paymentUrl; 
         } catch (error) {
             console.error("Payment Error:", error);
@@ -276,7 +245,6 @@ export default function CheckoutPage({ clearCart }) {
                             <option value="Alpha">Alpha (Front of Alpha 9)</option>
                             <option value="Beta">Beta (Front of Beta 12)</option>
                             <option value="Gamma">Gamma (Gamma Cafe)</option>
-                            {/* Updated Label Logic for NR */}
                             <option value="NR">
                                 NR (Non-Resident) {cartCups >= 5 ? '' : '(RM3.00)'}
                             </option>
@@ -291,8 +259,7 @@ export default function CheckoutPage({ clearCart }) {
                                 value={formData.address}
                                 onChange={e => setFormData({...formData, address: e.target.value})}
                             />
-                             {/* Small text hint for NR */}
-                             <p className="text-[10px] text-orange-600 mt-1 pl-1">
+                            <p className="text-[10px] text-orange-600 mt-1 pl-1">
                                 *NR Delivery requires min. 5 cups for free delivery.
                             </p>
                         </div>
@@ -331,11 +298,10 @@ export default function CheckoutPage({ clearCart }) {
                 </button>
             </div>
 
-            {/* --- UPSELL POPUP MODAL (NR SPECIFIC) --- */}
+            {/* UPSELL POPUP MODAL (FOR NR) */}
             {showUpsellModal && (
                 <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
                     <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-scale-up text-center relative overflow-hidden">
-                        {/* Decorative background circle */}
                         <div className="absolute -top-10 -right-10 w-32 h-32 bg-green-100 rounded-full opacity-50"></div>
 
                         <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4 text-green-600">

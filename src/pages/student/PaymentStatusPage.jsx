@@ -5,10 +5,10 @@ import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 
 export default function PaymentStatusPage({ clearCart }) {
+
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     const [status, setStatus] = useState("checking"); 
-
     const statusId = searchParams.get("status_id"); 
     const orderId = searchParams.get("order_id");
 
@@ -31,7 +31,7 @@ export default function PaymentStatusPage({ clearCart }) {
             if (!snapshot.empty) {
                 const orderData = snapshot.docs[0].data();
                 
-                // Check if Backend has done its job
+                // Check if Backend has done the payment
                 if (orderData.paymentStatus === "PAID" || orderData.status === "RECEIVED") {
                     clearCart();
                     setStatus("success");
