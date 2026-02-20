@@ -18,6 +18,7 @@ import AdminDashboard from "./pages/admin/AdminDashboard";
 import PaymentStatusPage from "./pages/student/PaymentStatusPage";
 import AnalyticsTracker from "./AnalyticsTracker";
 import { loadCurrentCart, saveCurrentCart, clearCurrentCart } from "./lib/storage";
+import AppFooter from "./components/AppFooter";
 
 function App() {
 
@@ -118,6 +119,7 @@ function App() {
                     </Route>
                 </Routes>
             </div>
+            <AppFooter/>
         </BrowserRouter>
     );
 }
