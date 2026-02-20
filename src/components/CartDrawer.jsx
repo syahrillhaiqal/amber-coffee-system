@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { X, ShieldCheck, Info, Trash2, CheckCircle2, ZoomIn, Truck } from 'lucide-react';
-
-// Import Images
 import imgBasic from "../assets/package-basic.png";
 import imgPremium from "../assets/package-premium.png";
+import { calcTotals } from "../lib/pricing";
+import { logEvent } from "firebase/analytics";
+import { analytics } from "../lib/firebase";
 
 const PACKAGES = {
     basic: { 
@@ -22,44 +23,53 @@ const PACKAGES = {
 };
 
 export default function CartDrawer({ cart, close, tripInfo, removeFromCart, updateCartItemProtection }) { 
+
     const navigate = useNavigate();
     
-    // Lightbox State
     const [showFullImage, setShowFullImage] = useState(null); // stores 'basic' or 'premium'
+
+    const { subTotal, protectionFee, deliveryFee, finalTotal, totalCups } = calcTotals(cart);
+
+    const handlePackageSelect = (item, type) => {
+        
+        updateCartItemProtection(item.cartId, type);
+
+        logEvent(analytics, "select_protection", {
+            cart_item_id: item.cartId,
+            item_name: item.name,
+            protection_type: type,
+            protection_price: PACKAGES[type].price
+        });
+    };
+
+    const handleCheckout = () => {
+        close();
+
+        logEvent(analytics, "begin_checkout", {
+            cart_size: cart.length,
+            total_cups: totalCups,
+            subtotal: subTotal,
+            protection_fee: protectionFee,
+            delivery_fee: deliveryFee,
+            total_value: finalTotal
+        });
+
+        navigate('/checkout', {
+            state: {
+                cart,
+                subTotal,
+                protectionFee,
+                deliveryFee,
+                total: finalTotal,
+                tripInfo,
+            },
+        });
+    };
 
     useEffect(() => {
         document.body.style.overflow = 'hidden';
         return () => { document.body.style.overflow = 'unset'; };
     }, []);
-
-    // --- NEW CALCULATIONS ---
-    const itemsTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const totalCups = cart.reduce((sum, item) => sum + item.quantity, 0);
-    
-    // Calculate Protection Fee based on INDIVIDUAL items
-    const protectionFee = cart.reduce((sum, item) => {
-        const type = item.protection || 'basic'; // Default to basic
-        return sum + (PACKAGES[type].price * item.quantity);
-    }, 0);
-
-    // Delivery Fee Logic: 1 Cup = RM1, >1 Cup = FREE
-    const deliveryFee = totalCups > 1 ? 0 : 1.00;
-
-    const finalTotal = itemsTotal + protectionFee + deliveryFee;
-
-    const handleCheckout = () => {
-        close();
-        navigate('/checkout', {
-            state: { 
-                cart, 
-                subTotal: itemsTotal, 
-                protectionFee, 
-                deliveryFee,
-                total: finalTotal, 
-                tripInfo 
-            }
-        });
-    };
 
     return (
         <div className="fixed inset-0 z-50 flex justify-end bg-black/30 backdrop-blur-sm animate-fade-in">
@@ -76,13 +86,13 @@ export default function CartDrawer({ cart, close, tripInfo, removeFromCart, upda
                 {/* Scrollable Content */}
                 <div className="flex-1 overflow-y-auto p-4 space-y-6 overscroll-contain">
                     
-                    {/* --- 1. PACKAGE INFO CARD (Inline) --- */}
+                    {/* PACKAGE INFO CARD */}
                     <div className="bg-blue-50/50 rounded-2xl p-4 border border-blue-100">
                         <h3 className="text-xs font-bold text-blue-600 uppercase mb-3 flex items-center gap-1">
                             <ShieldCheck size={14}/> Protection Packages
                         </h3>
                         <div className="grid grid-cols-2 gap-3">
-                            {/* Basic Card */}
+                            {/* Basic Package Card */}
                             <div className="bg-white rounded-xl p-2 border border-blue-100 shadow-sm" onClick={() => setShowFullImage('basic')}>
                                 <div className="h-20 bg-stone-50 rounded-lg mb-2 overflow-hidden flex justify-center items-center relative">
                                     <img src={imgBasic} className=" object-contain p-1" alt="Basic"/>
@@ -93,7 +103,7 @@ export default function CartDrawer({ cart, close, tripInfo, removeFromCart, upda
                                     <p className="text-[10px] text-gray-500 leading-tight mt-1">Direct Drink, Sealed</p>
                                 </div>
                             </div>
-                            {/* Premium Card */}
+                            {/* Premium Package Card */}
                             <div className="bg-white rounded-xl p-2 border border-purple-100 shadow-sm" onClick={() => setShowFullImage('premium')}>
                                 <div className="h-20 bg-stone-50 rounded-lg mb-2 overflow-hidden flex justify-center items-center relative">
                                     <img src={imgPremium} className=" object-contain p-1" alt="Premium"/>
@@ -107,7 +117,7 @@ export default function CartDrawer({ cart, close, tripInfo, removeFromCart, upda
                         </div>
                     </div>
 
-                    {/* --- 2. ORDER LIST (With Per-Item Selector) --- */}
+                    {/* ORDER LIST */}
                     <div className="space-y-4">
                         {cart.length === 0 ? (
                             <div className="text-center mt-10 text-gray-400">Your cart is empty.</div>
@@ -139,7 +149,7 @@ export default function CartDrawer({ cart, close, tripInfo, removeFromCart, upda
                                         <p className="text-[10px] font-bold text-gray-600 uppercase w-16">Package:</p>
                                         <div className="flex-1 flex gap-2">
                                             <button 
-                                                onClick={() => updateCartItemProtection(item.cartId, 'basic')}
+                                                onClick={() => handlePackageSelect(item, 'basic')}
                                                 className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold border transition-all ${
                                                     (item.protection || 'basic') === 'basic' 
                                                     ? 'bg-white border-blue-500 text-blue-600 shadow-sm' 
@@ -149,7 +159,7 @@ export default function CartDrawer({ cart, close, tripInfo, removeFromCart, upda
                                                 Basic
                                             </button>
                                             <button 
-                                                onClick={() => updateCartItemProtection(item.cartId, 'premium')}
+                                                onClick={() => handlePackageSelect(item, 'premium')}
                                                 className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold border transition-all ${
                                                     item.protection === 'premium' 
                                                     ? 'bg-white border-purple-500 text-purple-600 shadow-sm' 
@@ -172,7 +182,7 @@ export default function CartDrawer({ cart, close, tripInfo, removeFromCart, upda
                         <div className="px-4 pt-3 pb-2 space-y-1">
                             <div className="flex justify-between text-xs text-gray-500">
                                 <span>Subtotal</span>
-                                <span>RM {itemsTotal.toFixed(2)}</span>
+                                <span>RM {subTotal.toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between text-xs text-blue-600 font-medium">
                                 <span>Total Protection Fees</span>
@@ -202,7 +212,7 @@ export default function CartDrawer({ cart, close, tripInfo, removeFromCart, upda
                 )}
             </div>
             
-            {/* --- LIGHTBOX (Only opens if clicked from top Reference) --- */}
+            {/* --- LIGHTBOX (For full image packaging) */}
             {showFullImage && (
                 <div 
                     className="fixed inset-0 z-[70] bg-black/95 flex items-center justify-center p-4 animate-fade-in"

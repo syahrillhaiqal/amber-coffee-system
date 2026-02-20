@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Calendar as CalIcon, Plus, Users, ArrowRight, Trash2, History, Clock } from "lucide-react";
-import { collection, getDocs, deleteDoc, doc, onSnapshot } from "firebase/firestore";
-import { db } from "../../lib/firebase";
+import { subscribeToAllSlots, deleteSlot, getSlotStatus } from "../../services/slotService";
+import { subscribeToAllOrders } from "../../services/orderService";
 
 export default function AdminSchedule() {
 
-const getTodayDate = () => {
+    const getTodayDate = () => {
         const now = new Date();
         const year = now.getFullYear();
         const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -20,107 +20,70 @@ const getTodayDate = () => {
     const [loading, setLoading] = useState(true);
     const [viewMode, setViewMode] = useState(location.state?.restoredViewMode || "upcoming");
 
-    const fetchSlots = async () => {
-        setLoading(true);
-        try {
-            // 1. Fetch Slots
-            const slotsSnap = await getDocs(collection(db, "delivery_slots"));
-            let allSlots = slotsSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    useEffect(() => {
+        // Subscribe to slots
+        const unsubSlots = subscribeToAllSlots(
+            (allSlots) => {
+                // Subscribe to orders
+                const unsubOrders = subscribeToAllOrders(
+                    (orders) => {
+                        // Calculate cups for each slot
+                        let slotsWithCups = allSlots.map(slot => {
+                            const validOrders = orders.filter(o =>
+                                o.slotId === slot.id &&
+                                o.status !== 'CANCELLED' &&
+                                o.status !== 'PENDING_PAYMENT'
+                            );
 
-            // 2. Fetch Orders
-            const ordersSnap = await getDocs(collection(db, "orders"));
-            const orders = ordersSnap.docs.map(doc => doc.data());
+                            const totalCups = validOrders.reduce((total, order) => {
+                                const orderCups = order.items.reduce((sum, item) => sum + item.quantity, 0);
+                                return total + orderCups;
+                            }, 0);
 
-            // 3. Calculate Counts (CUPS, not Orders)
-            allSlots = allSlots.map(slot => {
-                // Filter: Match Slot ID AND Status is NOT Cancelled AND NOT Pending
-                // We only count CONFIRMED (Paid) orders.
-                const validOrders = orders.filter(o => 
-                    o.slotId === slot.id && 
-                    o.status !== 'CANCELLED' && 
-                    o.status !== 'PENDING_PAYMENT' 
+                            return { ...slot, cupsCount: totalCups };
+                        });
+
+                        slotsWithCups.sort((a, b) =>
+                            new Date(b.deliveryTime) - new Date(a.deliveryTime)
+                        );
+
+                        if (viewMode === "upcoming") {
+                            const filtered = slotsWithCups.filter((s) =>
+                                s.deliveryTime.startsWith(selectedDate)
+                            );
+                            setSlots(filtered);
+                        } else {
+                            setSlots(slotsWithCups);
+                        }
+                        setLoading(false);
+                    },
+                    (error) => {
+                        console.error("Order subscription error:", error);
+                        setLoading(false);
+                    }
                 );
 
-                // Sum quantities of all items in valid orders
-                const totalCups = validOrders.reduce((total, order) => {
-                    const orderCups = order.items.reduce((sum, item) => sum + item.quantity, 0);
-                    return total + orderCups;
-                }, 0);
-
-                return { ...slot, realCount: totalCups };
-            });
-
-            // 4. Sort
-            allSlots.sort((a, b) => new Date(b.deliveryTime) - new Date(a.deliveryTime));
-
-            if (viewMode === "upcoming") {
-                const filtered = allSlots.filter((s) => s.deliveryTime.startsWith(selectedDate));
-                setSlots(filtered);
-            } else {
-                setSlots(allSlots);
-            }
-        } catch (err) {
-            console.error(err);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        setLoading(true);
-
-        // 1. Listen to SLOTS (so new trips appear instantly)
-        const unsubSlots = onSnapshot(collection(db, "delivery_slots"), (slotsSnapshot) => {
-            let allSlots = slotsSnapshot.docs.map((doc) => ({
-                id: doc.id,
-                ...doc.data(),
-            }));
-
-            // 2. Listen to ORDERS (so cup counts update instantly)
-            // Note: In a huge app, listening to ALL orders is expensive. 
-            // Better to query only today's orders or active orders.
-            const unsubOrders = onSnapshot(collection(db, "orders"), (ordersSnapshot) => {
-                const orders = ordersSnapshot.docs.map(doc => doc.data());
-
-                // 3. Merge & Calculate
-                allSlots = allSlots.map(slot => {
-                    const validOrders = orders.filter(o => 
-                        o.slotId === slot.id && 
-                        o.status !== 'CANCELLED' && 
-                        o.status !== 'PENDING_PAYMENT' 
-                    );
-
-                    const totalCups = validOrders.reduce((total, order) => {
-                        return total + order.items.reduce((sum, item) => sum + item.quantity, 0);
-                    }, 0);
-
-                    return { ...slot, realCount: totalCups };
-                });
-
-                // 4. Sort & Filter
-                allSlots.sort((a, b) => new Date(b.deliveryTime) - new Date(a.deliveryTime));
-
-                if (viewMode === "upcoming") {
-                    setSlots(allSlots.filter((s) => s.deliveryTime.startsWith(selectedDate)));
-                } else {
-                    setSlots(allSlots);
-                }
+                return () => unsubOrders();
+            },
+            (error) => {
+                console.error("Slot subscription error:", error);
                 setLoading(false);
-            });
+            }
+        );
 
-            return () => unsubOrders(); // Cleanup orders listener
-        });
-
-        return () => unsubSlots(); // Cleanup slots listener
+        return () => unsubSlots();
     }, [selectedDate, viewMode]);
 
     const handleDelete = async (slot) => {
-        if (slot.realCount > 0) {
+        if (slot.cupsCount > 0) {
             return alert("Cannot delete a trip that has orders.");
         }
         if (confirm("Delete this slot?")) {
-            await deleteDoc(doc(db, "delivery_slots", slot.id));
-            fetchSlots();
+            try {
+                await deleteSlot(slot.id);
+            } catch (error) {
+                console.error("Error deleting slot:", error);
+            }
         }
     };
 
@@ -184,7 +147,7 @@ const getTodayDate = () => {
             {/* Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {slots.map((slot) => {
-                    const status = getStatus(slot);
+                    const status = getSlotStatus(slot);
                     const dateStr = new Date(slot.deliveryTime).toLocaleDateString([], { day: 'numeric', month: 'short' });
 
                     return (
@@ -195,7 +158,7 @@ const getTodayDate = () => {
                                 {status.label}
                             </div>
 
-                            {/* Trip Info - REVERTED TO CLEANER DESIGN */}
+                            {/* Trip Info */}
                             <div className="mb-4">
                                 <p className="text-xs font-bold text-stone-400 uppercase mb-1">{dateStr}</p>
                                 <h3 className="text-3xl font-black text-stone-800 tracking-tight flex items-end gap-2">
@@ -213,7 +176,7 @@ const getTodayDate = () => {
                             {/* Counter */}
                             <div className="flex items-center gap-2 text-sm text-stone-600 mb-6 bg-stone-50 p-2 rounded-lg w-fit">
                                 <Users size={16} /> 
-                                <span className="font-bold">{slot.realCount}</span> 
+                                <span className="font-bold">{slot.cupsCount}</span> 
                                 <span className="text-stone-400">Cups</span>
                                 <span className="text-stone-300 mx-1">/</span>
                                 <span className="text-stone-400">{slot.maxCapacity} max</span>
@@ -221,13 +184,13 @@ const getTodayDate = () => {
 
                             {/* Actions */}
                             <div className="mt-auto flex gap-2">
-                                <Link to={`/admin/kitchen/${slot.id}`} 
+                                <Link to={`/admin/runner/${slot.id}`} 
                                 state={{ previousViewMode: viewMode }}
                                 className="flex-1 py-3 bg-stone-900 text-white rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-black transition-colors">
                                     {status.label === 'ENDED' ? 'View History' : 'Runner View'} 
                                     <ArrowRight size={16} />
                                 </Link>
-                                {slot.realCount === 0 && (
+                                {slot.cupsCount === 0 && (
                                     <button onClick={() => handleDelete(slot)} className="p-3 bg-red-50 text-red-500 rounded-xl hover:bg-red-100 transition-colors">
                                         <Trash2 size={20} />
                                     </button>

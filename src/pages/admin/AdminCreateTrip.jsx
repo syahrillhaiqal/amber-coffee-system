@@ -1,46 +1,29 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { ArrowLeft, CheckSquare, Square, Loader2, Filter } from "lucide-react";
+import { ArrowLeft, CheckSquare, Square, Loader2, Filter, ImageIcon } from "lucide-react";
 import { collection, getDocs, addDoc } from "firebase/firestore";
 import { db } from "../../lib/firebase";
+import { getTodayString, combineDateTime } from "../../lib/date";
 
-// Fixed Categories
 const CATEGORIES = ["Coffee", "Matcha", "Chocolate", "Refresher", "Pastry", "Food"];
 
 export default function AdminCreateTrip() {
-    const navigate = useNavigate();
-    const [loading, setLoading] = useState(false);
     
-    // --- FORM DATA ---
-    const getTodayString = () => {
-        const now = new Date();
-        const offset = now.getTimezoneOffset() * 60000;
-        const localDate = new Date(now.getTime() - offset);
-        return localDate.toISOString().split('T')[0];
-    };
+    const navigate = useNavigate();
 
     const [tripDate, setTripDate] = useState(getTodayString());
     const [openTime, setOpenTime] = useState("");
     const [closeTime, setCloseTime] = useState("");
     const [deliverTime, setDeliverTime] = useState("");
     const [capacity, setCapacity] = useState(20);
-    
-    // --- MENU DATA ---
+    const [loading, setLoading] = useState(false);
     const [menuItems, setMenuItems] = useState([]);
     const [selectedMenuIds, setSelectedMenuIds] = useState([]);
 
-    // Fetch Menu
-    useEffect(() => {
-        const fetchMenu = async () => {
-            const snapshot = await getDocs(collection(db, "menu_items"));
-            const items = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-            setMenuItems(items);
-        };
-        fetchMenu();
-    }, []);
+    const handleSelectAll = () => setSelectedMenuIds(menuItems.map(i => i.id));
+    const handleUnselectAll = () => setSelectedMenuIds([]);
+    const getItemsByCategory = (cat) => menuItems.filter(i => i.category === cat);
 
-    // ... (Selection Helpers remain unchanged) ...
-    // Copy toggleItem, toggleCategory, handleSelectAll, handleUnselectAll, getItemsByCategory here
     const toggleItem = (id) => {
         if (selectedMenuIds.includes(id)) {
             setSelectedMenuIds(prev => prev.filter(x => x !== id));
@@ -60,11 +43,7 @@ export default function AdminCreateTrip() {
         }
     };
 
-    const handleSelectAll = () => setSelectedMenuIds(menuItems.map(i => i.id));
-    const handleUnselectAll = () => setSelectedMenuIds([]);
-    const getItemsByCategory = (cat) => menuItems.filter(i => i.category === cat);
-
-    // --- SUBMIT WITH VALIDATION ---
+    // Handle submission with validation
     const handleSubmit = async () => {
         if (!tripDate || !openTime || !closeTime || !deliverTime) return alert("Please fill in all date and time fields.");
         if (selectedMenuIds.length === 0) return alert("Please select at least one menu item.");
@@ -76,7 +55,6 @@ export default function AdminCreateTrip() {
         }
 
         // 2. TIME LOGIC VALIDATION
-        // Since all times are on the same 'tripDate', we can just compare the HH:MM strings directly
         if (closeTime <= openTime) {
             return alert("Close Order time must be AFTER Open Order time.");
         }
@@ -93,9 +71,9 @@ export default function AdminCreateTrip() {
         try {
             const payload = {
                 dateString: tripDate,
-                openTime: `${tripDate}T${openTime}`,
-                cutoffTime: `${tripDate}T${closeTime}`,
-                deliveryTime: `${tripDate}T${deliverTime}`,
+                openTime: combineDateTime(tripDate, openTime),
+                cutoffTime: combineDateTime(tripDate, closeTime),
+                deliveryTime: combineDateTime(tripDate, deliverTime),
                 maxCapacity: parseInt(capacity),
                 currentBookings: 0,
                 selectedMenuIds: selectedMenuIds
@@ -109,6 +87,15 @@ export default function AdminCreateTrip() {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        const fetchMenu = async () => {
+            const snapshot = await getDocs(collection(db, "menu_items"));
+            const items = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+            setMenuItems(items);
+        };
+        fetchMenu();
+    }, []);
 
     return (
         <div className="max-w-5xl mx-auto space-y-6 pb-24">
@@ -132,7 +119,7 @@ export default function AdminCreateTrip() {
                             <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Trip Date</label>
                             <input 
                                 type="date" 
-                                min={getTodayString()} // HTML5 Validation helper
+                                min={getTodayString()}
                                 value={tripDate} 
                                 onChange={e => setTripDate(e.target.value)} 
                                 className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 appearance-none" 
@@ -173,7 +160,7 @@ export default function AdminCreateTrip() {
                     </div>
                 </div>
 
-                {/* RIGHT: MENU SELECTOR (Unchanged from previous robust version) */}
+                {/* RIGHT: MENU SELECTOR */}
                 <div className="lg:col-span-2 bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col h-[700px]">
                     <div className="mb-4 flex justify-between items-end border-b border-gray-100 pb-4">
                         <div>
@@ -227,7 +214,13 @@ export default function AdminCreateTrip() {
                                                         {isSelected ? <CheckSquare size={20} /> : <Square size={20} />}
                                                     </div>
                                                     
-                                                    <img src={item.image} className="w-10 h-10 rounded-lg object-cover bg-gray-200 shrink-0" />
+                                                    {item.image ? (
+                                                        <img src={item.image} className="w-10 h-10 rounded-lg object-cover bg-gray-200 shrink-0" />
+                                                    ) : (
+                                                        <div className="w-10 h-10 rounded-lg object-cover bg-stone-100 flex items-center justify-center text-gray-400">
+                                                            <ImageIcon size={12} />
+                                                        </div>
+                                                    )}
                                                     
                                                     <div className="flex-1 min-w-0">
                                                         <h4 className="font-bold text-gray-800 text-sm truncate">{item.name}</h4>

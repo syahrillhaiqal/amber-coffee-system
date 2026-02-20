@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
 import { DollarSign, ShoppingBag, Truck, TrendingUp } from "lucide-react";
-import { collection, query, where, onSnapshot } from "firebase/firestore"; // Changed getDocs to onSnapshot
-import { db } from "../../lib/firebase";
+import { subscribeToSlotsByDate } from "../../services/slotService";
+import { subscribeToAllOrders } from "../../services/orderService";
+import StatCard from "../../components/StatCard";
 
 export default function AdminDashboard() {
+
     const [stats, setStats] = useState({
         todaySales: 0,
         activeOrders: 0,
@@ -15,32 +17,27 @@ export default function AdminDashboard() {
     useEffect(() => {
         const todayStr = new Date().toISOString().split('T')[0];
 
-        const tripsRef = collection(db, "delivery_slots");
-        const tripsQ = query(tripsRef, where("dateString", "==", todayStr));
-        
-        const unsubscribeTrips = onSnapshot(tripsQ, (snapshot) => {
+        // Subscribe to today's trips
+        const unsubscribeTrips = subscribeToSlotsByDate(todayStr, (trips) => {
             setStats(prev => ({
                 ...prev,
-                tripsToday: snapshot.size
+                tripsToday: trips.length
             }));
         });
 
-        const ordersRef = collection(db, "orders");
-        
-        const unsubscribeOrders = onSnapshot(ordersRef, (snapshot) => {
+        // Subscribe to all orders
+        const unsubscribeOrders = subscribeToAllOrders((orders) => {
             let revenue = 0;
             let active = 0;
             let total = 0;
 
-            snapshot.forEach(doc => {
-                const data = doc.data();
-                
+            orders.forEach(data => {
                 if (data.paymentStatus === 'PAID') {
-                    const orderDate = data.createdAt.split('T')[0];
+                    const orderDate = data.createdAt?.split('T')[0];
                     
                     if (orderDate === todayStr) {
                         revenue += data.totalPrice || 0;
-                        total++; 
+                        total++;
                     }
 
                     const isFinished = ["DELIVERED", "COMPLETED", "CANCELLED"].includes(data.status);
@@ -68,19 +65,6 @@ export default function AdminDashboard() {
             unsubscribeOrders();
         };
     }, []);
-
-    const StatCard = ({ title, value, icon: Icon, color, sub }) => (
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-stone-100 flex items-center gap-4">
-            <div className={`p-4 rounded-2xl ${color} text-white`}>
-                <Icon size={24} />
-            </div>
-            <div>
-                <p className="text-stone-400 text-xs font-bold uppercase tracking-wider">{title}</p>
-                <h3 className="text-2xl font-bold text-stone-800">{value}</h3>
-                {sub && <p className="text-xs text-stone-400 mt-1">{sub}</p>}
-            </div>
-        </div>
-    );
 
     return (
         <div className="space-y-8 animate-fade-in">

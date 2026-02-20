@@ -1,42 +1,19 @@
 import { useState, useEffect } from "react";
-import {
-    Plus,
-    Edit2,
-    Trash2,
-    Image as ImageIcon,
-    Loader2,
-    X,
-    CheckSquare,
-    Square,
-} from "lucide-react";
-import {
-    collection,
-    addDoc,
-    getDocs,
-    deleteDoc,
-    doc,
-    updateDoc,
-} from "firebase/firestore";
+import { Plus, Edit2, Trash2, Image as ImageIcon, Loader2, X, CheckSquare, Square } from "lucide-react";
+import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage } from "../../lib/firebase";
+import { getAllMenuItems } from "../../services/menuService";
 
-const CATEGORIES = [
-    "Coffee",
-    "Matcha",
-    "Chocolate",
-    "Refresher",
-    "Pastry",
-    "Food",
-];
+const CATEGORIES = [ "Coffee", "Matcha", "Chocolate", "Refresher", "Pastry", "Food"];
 
 export default function AdminMenu() {
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [uploading, setUploading] = useState(false);
-
-    // Form state
-    const [editingId, setEditingId] = useState(null); // If null, we are adding new
+    const [editingId, setEditingId] = useState(null);
+    const [previewUrl, setPreviewUrl] = useState("");
     const [formData, setFormData] = useState({
         name: "",
         price: "",
@@ -46,23 +23,20 @@ export default function AdminMenu() {
         image: null,
     });
 
-    const [previewUrl, setPreviewUrl] = useState("");
-
     // Fetch menu items
     const fetchMenu = async () => {
         setLoading(true);
-        const querySnapshot = await getDocs(collection(db, "menu_items"));
-        const menuList = querySnapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-        }));
-        setItems(menuList);
-        setLoading(false);
-    };
 
-    useEffect(() => {
-        fetchMenu();
-    }, []);
+        try {
+            const menuList = await getAllMenuItems();
+            setItems(menuList);
+        } catch (error) {
+            console.error("Error fetching menu:", error);
+            setItems([]);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const handleImageChange = (e) => {
         const file = e.target.files[0];
@@ -72,7 +46,7 @@ export default function AdminMenu() {
                 alert(
                     "File too large! Please upload an image smaller than 2MB."
                 );
-                e.target.value = ""; // Clear the input
+                e.target.value = "";
                 return;
             }
 
@@ -163,6 +137,10 @@ export default function AdminMenu() {
         setPreviewUrl("");
     };
 
+    useEffect(() => {
+        fetchMenu();
+    }, []);
+
     return (
         <div className="space-y-6">
             {/* Header & Count */}
@@ -194,12 +172,20 @@ export default function AdminMenu() {
                     {items.map((item) => (
                         <div
                             key={item.id}
-                            className="bg-white p-3 rounded-2xl border border-gray-100 shadow-sm flex gap-4"
+                            className="bg-white p-3 rounded-2xl border border-gray-100 shadow-sm flex gap-4 cursor-pointer hover:border-primary/50 hover:shadow-md transition-all active:scale-[0.98]"
+                            onClick={() => openEdit(item)}
                         >
+                            {item.image ? (
                             <img
                                 src={item.image}
                                 className="w-24 h-24 rounded-xl object-cover bg-gray-100"
+                                alt={item.name}
                             />
+                            ) : (
+                                <div className="w-24 h-24 rounded-xl bg-stone-100 flex items-center justify-center text-stone-400">
+                                    <ImageIcon size={24} />
+                                </div>
+                            )}
                             <div className="flex-1 flex flex-col justify-between py-1">
                                 <div>
                                     <h3 className="font-bold text-gray-900">
@@ -214,16 +200,14 @@ export default function AdminMenu() {
                                         RM {item.price.toFixed(2)}
                                     </span>
                                     <div className="flex gap-2">
-                                        <button
-                                            onClick={() => openEdit(item)}
-                                            className="p-2 bg-gray-50 rounded-lg text-gray-600 hover:bg-gray-100"
-                                        >
+                                        <div className="p-2 bg-gray-50 rounded-lg text-gray-600">
                                             <Edit2 size={16} />
-                                        </button>
+                                        </div>
                                         <button
-                                            onClick={() =>
-                                                handleDelete(item.id)
-                                            }
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDelete(item.id);
+                                            }}
                                             className="p-2 bg-red-50 rounded-lg text-red-500 hover:bg-red-100"
                                         >
                                             <Trash2 size={16} />

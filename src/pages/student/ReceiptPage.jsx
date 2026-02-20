@@ -1,10 +1,11 @@
 import { useRef } from "react";
 import { useLocation, Link } from "react-router-dom";
-import { Download, MessageCircle } from "lucide-react"; // Added MessageCircle
+import { Download, MessageCircle } from "lucide-react";
 import { domToPng } from "modern-screenshot";
 import logo from "../../assets/amber-coffee.png";
 
 export default function ReceiptPage() {
+
     const location = useLocation();
     const data = location.state;
     const receiptRef = useRef(null);
@@ -29,15 +30,13 @@ export default function ReceiptPage() {
     };
 
     // --- DATA EXTRACTION ---
-    const itemsTotal = data.subTotal || data.totals?.subTotal || 0;
-    const protectFee = data.protectionFee || data.totals?.protectionFee || 0;
-    const grandTotal = data.totalPrice || data.totals?.finalTotal || 0;
-    
-    // 1. EXTRACT DELIVERY FEE (Handle legacy data that might be missing it)
-    const deliveryFee = data.deliveryFee !== undefined ? data.deliveryFee : (data.totals?.deliveryFee || 0);
-
-    const pickupPoint = data.pickupPoint || data.customer?.pickupPoint || "Unknown";
-    const address = data.address || data.customer?.address || "";
+    const itemsTotal = data.totals?.subTotal ?? 0;
+    const protectFee = data.totals?.protectionFee ?? 0;
+    const grandTotal = data.totals?.finalTotal ?? 0;
+    const deliveryFee = data.totals?.deliveryFee ?? 0;
+    const pickupPoint = data.customer?.pickupPoint ?? "Unknown";
+    const address = data.customer?.address ?? "";
+    const deliveryTime = data.tripTime ?? "Unknown";
 
     return (
         <div className="min-h-screen bg-stone-100 p-6 flex flex-col items-center justify-center">
@@ -72,10 +71,15 @@ export default function ReceiptPage() {
                         <p className="text-xs font-bold text-stone-600">
                             {data.timestamp ? data.timestamp.split(",")[1] : new Date().toLocaleTimeString()}
                         </p>
+                        {deliveryTime && (
+                            <p className="text-xs font-bold text-primary mt-1">
+                                Delivery At: {deliveryTime}
+                            </p>
+                        )}
                     </div>
                 </div>
 
-                {/* Items List (Unchanged) */}
+                {/* Items List */}
                 <div className="space-y-3 py-2 border-b border-stone-100 pb-4">
                     {data.cart && data.cart.map((item, i) => (
                         <div key={i} className="flex justify-between text-sm items-start">
@@ -107,7 +111,7 @@ export default function ReceiptPage() {
                     ))}
                 </div>
 
-                {/* --- FINANCIAL BREAKDOWN --- */}
+                {/* --- PRICING BREAKDOWN --- */}
                 <div className="space-y-1">
                     <div className="flex justify-between text-xs text-stone-500">
                         <span>Items Subtotal</span>
@@ -118,7 +122,7 @@ export default function ReceiptPage() {
                         <span>RM {protectFee.toFixed(2)}</span>
                     </div>
                     
-                    {/* 2. DISPLAY DYNAMIC DELIVERY FEE */}
+                    {/* DYNAMIC DELIVERY FEE */}
                     <div className={`flex justify-between text-xs font-bold ${deliveryFee === 0 ? 'text-green-600' : 'text-stone-500'}`}>
                         <span>Delivery Fee</span>
                         <span>{deliveryFee === 0 ? "FREE" : `RM ${deliveryFee.toFixed(2)}`}</span>
@@ -132,7 +136,7 @@ export default function ReceiptPage() {
                     </div>
                 </div>
 
-                {/* Pickup & Address (Unchanged) */}
+                {/* Pickup & Address */}
                 <div className="bg-primary/5 p-4 rounded-xl text-center border border-primary/10">
                     <p className="text-xs text-primary font-bold uppercase mb-1">Pickup Location</p>
                     <p className="text-lg font-bold text-stone-800">{pickupPoint}</p>
@@ -144,7 +148,7 @@ export default function ReceiptPage() {
                     )}
                 </div>
 
-                {/* --- NEW: SUPPORT CONTACT --- */}
+                {/* AMBER CONTACT */}
                 <div className="mt-4 pt-4 border-t border-stone-300 text-center">
                     <p className="text-[12px] text-stone-400 font-medium mb-1">Need to contact the runner?</p>
                     <a 
@@ -171,7 +175,7 @@ export default function ReceiptPage() {
                 </div>
             </div>
 
-            {/* Actions (Unchanged) */}
+            {/* Actions */}
             <div className="w-full max-w-md space-y-3">
                 <button onClick={handleSaveReceipt} className="w-full flex items-center justify-center gap-2 bg-stone-900 text-white py-4 rounded-xl font-bold active:scale-95 transition-transform shadow-lg shadow-stone-200">
                     <Download size={20} /> Save Receipt Image
