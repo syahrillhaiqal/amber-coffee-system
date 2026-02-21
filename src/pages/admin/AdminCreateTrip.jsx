@@ -6,6 +6,7 @@ import { db } from "../../lib/firebase";
 import { getTodayString, combineDateTime } from "../../lib/date";
 
 const CATEGORIES = ["Coffee", "Matcha", "Chocolate", "Refresher", "Pastry", "Food"];
+const TRIP_TYPES = ["delivery", "pickup"];
 
 export default function AdminCreateTrip() {
     
@@ -19,6 +20,7 @@ export default function AdminCreateTrip() {
     const [loading, setLoading] = useState(false);
     const [menuItems, setMenuItems] = useState([]);
     const [selectedMenuIds, setSelectedMenuIds] = useState([]);
+    const [tripType, setTripType] = useState("delivery");
 
     const handleSelectAll = () => setSelectedMenuIds(menuItems.map(i => i.id));
     const handleUnselectAll = () => setSelectedMenuIds([]);
@@ -45,7 +47,9 @@ export default function AdminCreateTrip() {
 
     // Handle submission with validation
     const handleSubmit = async () => {
-        if (!tripDate || !openTime || !closeTime || !deliverTime) return alert("Please fill in all date and time fields.");
+        if (!TRIP_TYPES.includes(tripType)) return alert("Please choose a valid trip type.");
+        if (!tripDate || !openTime || !closeTime) return alert("Please fill in all required date and time fields.");
+        if (tripType === "delivery" && !deliverTime) return alert("Please set a delivery time.");
         if (selectedMenuIds.length === 0) return alert("Please select at least one menu item.");
 
         // 1. DATE VALIDATION
@@ -58,23 +62,24 @@ export default function AdminCreateTrip() {
         if (closeTime <= openTime) {
             return alert("Close Order time must be AFTER Open Order time.");
         }
-        if (deliverTime <= closeTime) {
+        if (tripType === "delivery" && deliverTime <= closeTime) {
             return alert("Delivery time must be AFTER orders close.");
         }
 
-        // 3. CAPACITY VALIDATION
-        if (parseInt(capacity) <= 0) {
+        // 3. CAPACITY VALIDATION (delivery only)
+        if (tripType === "delivery" && parseInt(capacity) <= 0) {
             return alert("Capacity must be greater than 0.");
         }
 
         setLoading(true);
         try {
             const payload = {
+                type: tripType,
                 dateString: tripDate,
                 openTime: combineDateTime(tripDate, openTime),
                 cutoffTime: combineDateTime(tripDate, closeTime),
-                deliveryTime: combineDateTime(tripDate, deliverTime),
-                maxCapacity: parseInt(capacity),
+                deliveryTime: tripType === "delivery" ? combineDateTime(tripDate, deliverTime) : null,
+                maxCapacity: tripType === "delivery" ? parseInt(capacity) : null,
                 currentBookings: 0,
                 selectedMenuIds: selectedMenuIds
             };
@@ -111,52 +116,99 @@ export default function AdminCreateTrip() {
                 {/* LEFT: SETTINGS */}
                 <div className="lg:col-span-1 space-y-6">
                     <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 space-y-5">
+                        {/* 1) Trip Type */}
                         <h2 className="font-bold text-gray-800 flex items-center gap-2">
-                            <span className="bg-stone-900 text-white w-6 h-6 rounded flex items-center justify-center text-xs">1</span> Schedule
+                            <span className="bg-stone-900 text-white w-6 h-6 rounded flex items-center justify-center text-xs">1</span> Trip Type
                         </h2>
-                        
-                        <div>
-                            <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Trip Date</label>
-                            <input 
-                                type="date" 
-                                min={getTodayString()}
-                                value={tripDate} 
-                                onChange={e => setTripDate(e.target.value)} 
-                                className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 appearance-none" 
-                            />
-                        </div>
-                        
-                        <div className="space-y-3">
-                            <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Open</label>
-                                    <input type="time" value={openTime} onChange={e => setOpenTime(e.target.value)} className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 appearance-none" />
-                                </div>
-                                <div>
-                                    <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Close</label>
-                                    <input type="time" value={closeTime} onChange={e => setCloseTime(e.target.value)} className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 appearance-none" />
-                                </div>
-                            </div>
-                            <div>
-                                <label className="text-xs font-bold text-blue-500 uppercase mb-1 block">Delivery Time</label>
-                                <input type="time" value={deliverTime} onChange={e => setDeliverTime(e.target.value)} className="w-full p-3 bg-blue-50 text-blue-900 font-bold rounded-xl border border-blue-100 appearance-none" />
-                            </div>
-                        </div>  
 
+                        <div>
+                            <label className="text-xs font-bold text-gray-400 uppercase mb-2 block">Type</label>
+                            <div className="grid grid-cols-2 gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setTripType("delivery")}
+                                    className={`px-3 py-2 rounded-lg border text-sm font-bold transition ${
+                                        tripType === "delivery"
+                                            ? "border-stone-900 bg-stone-900 text-white"
+                                            : "border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100"
+                                    }`}
+                                >
+                                    Delivery
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setTripType("pickup")}
+                                    className={`px-3 py-2 rounded-lg border text-sm font-bold transition ${
+                                        tripType === "pickup"
+                                            ? "border-primary bg-primary text-white"
+                                            : "border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100"
+                                    }`}
+                                >
+                                    Pickup
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* 2) Schedule */}
                         <div className="pt-4 border-t border-gray-100">
                             <h2 className="font-bold text-gray-800 flex items-center gap-2 mb-4">
-                                <span className="bg-stone-900 text-white w-6 h-6 rounded flex items-center justify-center text-xs">2</span> Capacity
+                                <span className="bg-stone-900 text-white w-6 h-6 rounded flex items-center justify-center text-xs">2</span> Schedule
                             </h2>
-                            <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Max Cups</label>
-                            <input 
-                                type="number" 
-                                inputMode="numeric"
-                                min="1"
-                                value={capacity} 
-                                onChange={e => setCapacity(e.target.value)} 
-                                className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 appearance-none" 
-                            />
+
+                            <div>
+                                <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Trip Date</label>
+                                <input
+                                    type="date"
+                                    min={getTodayString()}
+                                    value={tripDate}
+                                    onChange={e => setTripDate(e.target.value)}
+                                    className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 appearance-none"
+                                />
+                            </div>
+
+                            <div className="space-y-3 mt-3">
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Open</label>
+                                        <input type="time" value={openTime} onChange={e => setOpenTime(e.target.value)} className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 appearance-none" />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Close</label>
+                                        <input type="time" value={closeTime} onChange={e => setCloseTime(e.target.value)} className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 appearance-none" />
+                                    </div>
+                                </div>
+
+                                {tripType === "delivery" && (
+                                    <div>
+                                        <label className="text-xs font-bold text-blue-500 uppercase mb-1 block">Delivery Time</label>
+                                        <input
+                                            type="time"
+                                            value={deliverTime}
+                                            onChange={e => setDeliverTime(e.target.value)}
+                                            className="w-full p-3 bg-blue-50 text-blue-900 font-bold rounded-xl border border-blue-100 appearance-none"
+                                        />
+                                    </div>
+                                )}
+                            </div>
                         </div>
+
+                        {/* 3) Capacity */}
+                        {tripType === "delivery" && (
+                            <div className="pt-4 border-t border-gray-100">
+                                <h2 className="font-bold text-gray-800 flex items-center gap-2 mb-4">
+                                    <span className="bg-stone-900 text-white w-6 h-6 rounded flex items-center justify-center text-xs">3</span> Capacity
+                                </h2>
+                                <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Max Cups</label>
+                                <input 
+                                    type="number" 
+                                    inputMode="numeric"
+                                    min="1"
+                                    value={capacity} 
+                                    onChange={e => setCapacity(e.target.value)} 
+                                    className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 appearance-none" 
+                                />
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -165,7 +217,7 @@ export default function AdminCreateTrip() {
                     <div className="mb-4 flex justify-between items-end border-b border-gray-100 pb-4">
                         <div>
                             <h2 className="font-bold text-gray-800 flex items-center gap-2 mb-1">
-                                <span className="bg-stone-900 text-white w-6 h-6 rounded flex items-center justify-center text-xs">3</span> Select Menu
+                                <span className="bg-stone-900 text-white w-6 h-6 rounded flex items-center justify-center text-xs">4</span> Select Menu
                             </h2>
                             <p className="text-xs text-gray-400">Choose what items are available for this trip.</p>
                         </div>

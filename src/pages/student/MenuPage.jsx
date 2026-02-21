@@ -27,9 +27,11 @@ export default function MenuPage({addToCart, removeFromCart, cart, updateCartIte
     const [isCartOpen, setIsCartOpen] = useState(false);
     const [activeCategory, setActiveCategory] = useState("Recommended");
     const [showUpsellModal, setShowUpsellModal] = useState(false);
-    const [tripInfo, setTripInfo] = useState(() => {
+    const [tripInfo] = useState(() => {
         return location.state || loadCurrentTrip();
     });
+
+    const isPickup = (tripInfo?.orderType || "delivery") === "pickup";
     
     const getGroupedItems = () => {
         let filtered = allItems.filter((item) =>
@@ -83,8 +85,8 @@ export default function MenuPage({addToCart, removeFromCart, cart, updateCartIte
 
         addToCart(item, qty, remark);
 
-        // UPSELL LOGIC: If total becomes 1, show modal
-        if (currentCups === 0 && qty === 1) {
+        // UPSELL LOGIC applies to delivery only
+        if (!isPickup && currentCups === 0 && qty === 1) {
             setShowUpsellModal(true);
         }
     };
@@ -344,7 +346,7 @@ export default function MenuPage({addToCart, removeFromCart, cart, updateCartIte
             )}
 
             {/* UPSELL POPUP MODAL */}
-            {showUpsellModal && (
+            {showUpsellModal && !isPickup && (
                 <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
                     <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-scale-up text-center relative overflow-hidden">
                         {/* Decorative background circle */}

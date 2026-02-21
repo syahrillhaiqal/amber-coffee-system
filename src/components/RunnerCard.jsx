@@ -3,6 +3,8 @@ import { MapPin, RotateCcw, Trash2 } from "lucide-react";
 
 export default function RunnerCard({order, actionBtn, secondaryBtn, accentColor, isCompleted, setSelectedOrder}) {
 
+    const isPickupOrder = (order?.orderType || "delivery") === "pickup";
+
     return (
         <div
             className={`bg-white rounded-xl shadow-md border-l-8 overflow-hidden flex flex-col mb-3 animate-fade-in ${
@@ -53,15 +55,17 @@ export default function RunnerCard({order, actionBtn, secondaryBtn, accentColor,
                                         </span>
 
                                         {/* --- NEW: PROTECTION BADGE --- */}
-                                        <span
-                                            className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase border ${
-                                                item.protection === "premium"
-                                                    ? "bg-purple-50 text-purple-700 border-purple-200"
-                                                    : "bg-blue-50 text-blue-700 border-blue-200"
-                                            }`}
-                                        >
-                                            {item.protection || "Basic"}
-                                        </span>
+                                        {!isPickupOrder && item.protection && (
+                                            <span
+                                                className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase border ${
+                                                    item.protection === "premium"
+                                                        ? "bg-purple-50 text-purple-700 border-purple-200"
+                                                        : "bg-blue-50 text-blue-700 border-blue-200"
+                                                }`}
+                                            >
+                                                {item.protection}
+                                            </span>
+                                        )}
                                     </div>
 
                                     <div className="flex gap-1 flex-wrap mt-0.5">

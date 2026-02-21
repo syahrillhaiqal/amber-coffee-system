@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Calendar as CalIcon, Plus, Users, ArrowRight, Trash2, History, Clock } from "lucide-react";
-import { subscribeToAllSlots, deleteSlot, getSlotStatus } from "../../services/slotService";
+import { subscribeToAllSlots, deleteSlot, getSlotStatus, getSlotType } from "../../services/slotService";
 import { subscribeToAllOrders } from "../../services/orderService";
 
 export default function AdminSchedule() {
@@ -43,13 +43,15 @@ export default function AdminSchedule() {
                             return { ...slot, cupsCount: totalCups };
                         });
 
+                        const getSlotTime = (s) => s.deliveryTime || s.openTime;
+
                         slotsWithCups.sort((a, b) =>
-                            new Date(b.deliveryTime) - new Date(a.deliveryTime)
+                            new Date(getSlotTime(b)) - new Date(getSlotTime(a))
                         );
 
                         if (viewMode === "upcoming") {
                             const filtered = slotsWithCups.filter((s) =>
-                                s.deliveryTime.startsWith(selectedDate)
+                                getSlotTime(s).startsWith(selectedDate)
                             );
                             setSlots(filtered);
                         } else {
@@ -85,18 +87,6 @@ export default function AdminSchedule() {
                 console.error("Error deleting slot:", error);
             }
         }
-    };
-
-    const getStatus = (slot) => {
-        const now = new Date();
-        const open = new Date(slot.openTime);
-        const close = new Date(slot.cutoffTime);
-        const delivery = new Date(slot.deliveryTime);
-
-        if (now > delivery) return { label: "ENDED", color: "bg-stone-200 text-stone-500" };
-        if (now >= close && now <= delivery) return { label: "ONGOING", color: "bg-blue-100 text-blue-700" };
-        if (now >= open && now < close) return { label: "OPEN", color: "bg-green-100 text-green-700 animate-pulse" };
-        return { label: "UPCOMING", color: "bg-yellow-100 text-yellow-700" };
     };
 
     const formatTime = (isoString) => {
@@ -147,8 +137,12 @@ export default function AdminSchedule() {
             {/* Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {slots.map((slot) => {
+                    const isPickup = (slot.type || "delivery") === "pickup";
+                    const typeLabel = (slot.type || "delivery").toUpperCase();
+                    const type = getSlotType(slot);
                     const status = getSlotStatus(slot);
-                    const dateStr = new Date(slot.deliveryTime).toLocaleDateString([], { day: 'numeric', month: 'short' });
+                    const slotTime = slot.type === "delivery" ? slot.deliveryTime : slot.openTime;
+                    const dateStr = new Date(slotTime).toLocaleDateString([], { day: 'numeric', month: 'short' });
 
                     return (
                         <div key={slot.id} className={`bg-white p-5 rounded-3xl border shadow-sm relative group transition-all hover:shadow-md flex flex-col ${status.label === 'ENDED' ? 'border-stone-100 opacity-80' : 'border-stone-200'}`}>
@@ -160,9 +154,15 @@ export default function AdminSchedule() {
 
                             {/* Trip Info */}
                             <div className="mb-4">
-                                <p className="text-xs font-bold text-stone-400 uppercase mb-1">{dateStr}</p>
+                                <div className="flex items-center gap-2">
+                                    <p className="text-xs font-bold text-stone-400 uppercase">{dateStr}</p>
+                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${type}`}>
+                                        {typeLabel}
+                                    </span>
+                                </div>
+
                                 <h3 className="text-3xl font-black text-stone-800 tracking-tight flex items-end gap-2">
-                                    {formatTime(slot.deliveryTime)}
+                                    {formatTime(slotTime)}
                                     <span className="text-sm font-bold text-stone-400 mb-1">Trip</span> 
                                 </h3>
                                 {/* Minimalist Open/Close Times */}
@@ -178,8 +178,14 @@ export default function AdminSchedule() {
                                 <Users size={16} /> 
                                 <span className="font-bold">{slot.cupsCount}</span> 
                                 <span className="text-stone-400">Cups</span>
-                                <span className="text-stone-300 mx-1">/</span>
-                                <span className="text-stone-400">{slot.maxCapacity} max</span>
+                                {isPickup ? (
+                                    <span className="text-stone-400">(No limit)</span>
+                                ) : (
+                                    <>
+                                        <span className="text-stone-300 mx-1">/</span>
+                                        <span className="text-stone-400">{slot.maxCapacity} max</span>
+                                    </>
+                                )}
                             </div>
 
                             {/* Actions */}
@@ -187,7 +193,7 @@ export default function AdminSchedule() {
                                 <Link to={`/admin/runner/${slot.id}`} 
                                 state={{ previousViewMode: viewMode }}
                                 className="flex-1 py-3 bg-stone-900 text-white rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-black transition-colors">
-                                    {status.label === 'ENDED' ? 'View History' : 'Runner View'} 
+                                    {status.label === 'ENDED' ? 'View History' : (isPickup ? 'Barista View' : 'Runner View')} 
                                     <ArrowRight size={16} />
                                 </Link>
                                 {slot.cupsCount === 0 && (

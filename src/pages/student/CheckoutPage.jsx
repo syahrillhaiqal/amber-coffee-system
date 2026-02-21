@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { ArrowLeft, MapPin, Loader2, Truck, Mail, Gift, ShoppingBag } from "lucide-react"; 
+import { ArrowLeft, MapPin, Loader2, Truck, Mail, Gift, ShoppingBag, Clock } from "lucide-react"; 
 import axios from "axios";
 import { calcDeliveryFee } from "../../lib/pricing";
 import { createOrder, getFilledCupsForSlot } from "../../services/orderService";
@@ -14,8 +14,45 @@ export default function CheckoutPage({ clearCart }) {
     const location = useLocation();
     
     const { cart, subTotal, protectionFee, protectionType, tripInfo } = location.state || {}; 
+    const isPickup = (tripInfo?.orderType || "delivery") === "pickup";
 
     const cartCups = cart ? cart.reduce((sum, item) => sum + item.quantity, 0) : 0;
+
+    const toTimeInput = (isoString) => {
+        if (!isoString) return "";
+        const date = new Date(isoString);
+        const hours = String(date.getHours()).padStart(2, "0");
+        const minutes = String(date.getMinutes()).padStart(2, "0");
+        return `${hours}:${minutes}`;
+    };
+
+    const parseTimeToMinutes = (timeValue) => {
+        if (!timeValue || !timeValue.includes(":")) return null;
+        const [hours, minutes] = timeValue.split(":").map(Number);
+        return hours * 60 + minutes;
+    };
+
+    const openTimeValue = toTimeInput(tripInfo?.openTime);
+    const cutoffTimeValue = toTimeInput(tripInfo?.cutoffTime);
+    const defaultPickupTime = openTimeValue || "";
+
+    const pickupTimeOptions = (() => {
+        if (!openTimeValue || !cutoffTimeValue) return [];
+        const start = parseTimeToMinutes(openTimeValue);
+        const end = parseTimeToMinutes(cutoffTimeValue);
+        if (start === null || end === null || end < start) return [];
+
+        const options = [];
+        for (let value = start; value <= end; value += 15) {
+            const hh = String(Math.floor(value / 60)).padStart(2, "0");
+            const mm = String(value % 60).padStart(2, "0");
+            options.push(`${hh}:${mm}`);
+        }
+        if (!options.includes(cutoffTimeValue)) {
+            options.push(cutoffTimeValue);
+        }
+        return options;
+    })();
 
     const [loading, setLoading] = useState(false);
     const [showUpsellModal, setShowUpsellModal] = useState(false);
@@ -25,14 +62,17 @@ export default function CheckoutPage({ clearCart }) {
         email: "", 
         pickupPoint: "Alpha",
         address: "",
+        pickupTime: defaultPickupTime,
     });
 
-    const finalDeliveryFee = calcDeliveryFee(formData.pickupPoint, cartCups);
+    const finalProtectionFee = isPickup ? 0 : (protectionFee || 0);
+    const finalDeliveryFee = isPickup ? 0 : calcDeliveryFee(formData.pickupPoint, cartCups);
 
-    const finalTotal = (subTotal || 0) + (protectionFee || 0) + finalDeliveryFee;
+    const finalTotal = (subTotal || 0) + finalProtectionFee + finalDeliveryFee;
 
     // Handle Dropdown Change
     const handleLocationChange = (e) => {
+        if (isPickup) return;
         const newLocation = e.target.value;
 
         logEvent(analytics, "select_delivery_location", { location: newLocation });
@@ -87,7 +127,8 @@ export default function CheckoutPage({ clearCart }) {
             }
 
             const currentFilledCups = await getFilledCupsForSlot(tripInfo.tripId);
-            const availableSlots = tripData.maxCapacity - currentFilledCups;
+            const hasCapacityLimit = tripData.type !== "pickup";
+            const availableSlots = hasCapacityLimit ? tripData.maxCapacity - currentFilledCups : Number.POSITIVE_INFINITY;
 
             if (cartCups > availableSlots) {
                 alert(`Sorry! This trip is almost full. Only ${availableSlots} cups remaining.`);
@@ -107,7 +148,25 @@ export default function CheckoutPage({ clearCart }) {
         if (!formData.name || !formData.phone || !formData.email) return alert("Please fill in Name, Phone, and Email.");
         if (!isValidPhone(formData.phone)) return alert("Please enter a valid phone number.");
         if (!isValidEmail(formData.email)) return alert("Please enter a valid email address.");
-        if (formData.pickupPoint === "NR" && !formData.address) return alert("Please enter your full address for NR delivery.");
+        if (!isPickup && formData.pickupPoint === "NR" && !formData.address) return alert("Please enter your full address for NR delivery.");
+
+        if (isPickup) {
+            if (!formData.pickupTime) return alert("Please select your pickup time.");
+
+            const selectedMinutes = parseTimeToMinutes(formData.pickupTime);
+            const openMinutes = parseTimeToMinutes(openTimeValue);
+            const closeMinutes = parseTimeToMinutes(cutoffTimeValue);
+
+            if (
+                selectedMinutes === null ||
+                openMinutes === null ||
+                closeMinutes === null ||
+                selectedMinutes < openMinutes ||
+                selectedMinutes > closeMinutes
+            ) {
+                return alert("Pickup time must be within the available pickup window.");
+            }
+        }
 
         setLoading(true);
 
@@ -142,13 +201,15 @@ export default function CheckoutPage({ clearCart }) {
                 customerName: formData.name,
                 customerPhone: formData.phone,
                 customerEmail: formData.email, 
-                pickupPoint: formData.pickupPoint,
-                address: formData.address || "", 
+                orderType: isPickup ? "pickup" : "delivery",
+                pickupPoint: isPickup ? "Pickup Counter" : formData.pickupPoint,
+                pickupTime: isPickup ? formData.pickupTime : "",
+                address: isPickup ? "" : (formData.address || ""), 
                 items: cart,
                 
                 subTotal: subTotal || 0,
-                protectionFee: protectionFee || 0,
-                protectionType: protectionType || "Mixed",
+                protectionFee: finalProtectionFee,
+                protectionType: isPickup ? "None" : (protectionType || "Mixed"),
                 deliveryFee: finalDeliveryFee, 
                 totalPrice: finalTotal,
                 
@@ -169,8 +230,9 @@ export default function CheckoutPage({ clearCart }) {
                     price: item.price,
                     quantity: item.quantity
                 })),
-                delivery_location: formData.pickupPoint,
-                protection_fee: protectionFee,
+                order_type: isPickup ? "pickup" : "delivery",
+                delivery_location: isPickup ? "Pickup Counter" : formData.pickupPoint,
+                protection_fee: finalProtectionFee,
                 delivery_fee: finalDeliveryFee
             });
         } catch (error) {
@@ -251,24 +313,48 @@ export default function CheckoutPage({ clearCart }) {
                 <div className="bg-white p-5 rounded-3xl shadow-sm border border-stone-100 space-y-4">
                     <h2 className="font-bold text-stone-800 flex items-center gap-2">
                         <span className="bg-primary text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">2</span>
-                        Delivery Point
+                        {isPickup ? "Pickup Time" : "Delivery Point"}
                     </h2>
-                    <div className="relative">
-                        <MapPin className="absolute left-3 top-3 text-gray-400" size={20}/>
-                        <select 
-                            className="w-full pl-10 p-3 bg-stone-100 rounded-xl border-none focus:ring-2 focus:ring-primary/20 appearance-none"
-                            value={formData.pickupPoint}
-                            onChange={handleLocationChange}
-                        >
-                            <option value="Alpha">Alpha (Front of Alpha 9)</option>
-                            <option value="Beta">Beta (Front of Beta 12)</option>
-                            <option value="Gamma">Gamma (Gamma Cafe)</option>
-                            <option value="NR">
-                                NR (Non-Resident) {cartCups >= 5 ? '' : '(RM3.00)'}
-                            </option>
-                        </select>
-                    </div>
-                    {formData.pickupPoint === "NR" && (
+                    {isPickup ? (
+                        <div>
+                            <div className="relative">
+                                <Clock className="absolute left-3 top-3 text-gray-400" size={20}/>
+                                <select
+                                    className="w-full pl-10 p-3 bg-stone-100 rounded-xl border-none focus:ring-2 focus:ring-primary/20 appearance-none"
+                                    value={formData.pickupTime}
+                                    onChange={e => setFormData({ ...formData, pickupTime: e.target.value })}
+                                >
+                                    {pickupTimeOptions.map((option) => (
+                                        <option key={option} value={option}>
+                                            {option}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <p className="text-[10px] text-gray-400 mt-1 pl-1">
+                                Available window: {openTimeValue || "--:--"} - {cutoffTimeValue || "--:--"}
+                            </p>
+                        </div>
+                    ) : (
+                        <>
+                            <div className="relative">
+                                <MapPin className="absolute left-3 top-3 text-gray-400" size={20}/>
+                                <select 
+                                    className="w-full pl-10 p-3 bg-stone-100 rounded-xl border-none focus:ring-2 focus:ring-primary/20 appearance-none"
+                                    value={formData.pickupPoint}
+                                    onChange={handleLocationChange}
+                                >
+                                    <option value="Alpha">Alpha (Front of Alpha 9)</option>
+                                    <option value="Beta">Beta (Front of Beta 12)</option>
+                                    <option value="Gamma">Gamma (Gamma Cafe)</option>
+                                    <option value="NR">
+                                        NR (Non-Resident) {cartCups >= 5 ? '' : '(RM3.00)'}
+                                    </option>
+                                </select>
+                            </div>
+                        </>
+                    )}
+                    {!isPickup && formData.pickupPoint === "NR" && (
                         <div className="animate-fade-in">
                             <textarea 
                                 placeholder="Full Address (House No, Street...)"
@@ -290,16 +376,20 @@ export default function CheckoutPage({ clearCart }) {
                         <span>Items Subtotal</span>
                         <span>RM {subTotal?.toFixed(2)}</span>
                     </div>
-                    <div className="flex justify-between text-sm text-blue-600 font-medium px-2">
-                        <span>Protection Fee</span>
-                        <span>RM {protectionFee?.toFixed(2)}</span>
-                    </div>
+                    {!isPickup && (
+                        <div className="flex justify-between text-sm text-blue-600 font-medium px-2">
+                            <span>Protection Fee</span>
+                            <span>RM {finalProtectionFee.toFixed(2)}</span>
+                        </div>
+                    )}
                     
                     {/* SHOW DYNAMIC DELIVERY FEE */}
-                    <div className={`flex justify-between text-sm font-bold px-2 ${finalDeliveryFee === 0 ? 'text-green-600' : 'text-orange-600'}`}>
-                        <span className="flex items-center gap-1"><Truck size={14}/> Delivery Fee</span>
-                        <span>{finalDeliveryFee === 0 ? "FREE" : `RM ${finalDeliveryFee.toFixed(2)}`}</span>
-                    </div>
+                    {!isPickup && (
+                        <div className={`flex justify-between text-sm font-bold px-2 ${finalDeliveryFee === 0 ? 'text-green-600' : 'text-orange-600'}`}>
+                            <span className="flex items-center gap-1"><Truck size={14}/> Delivery Fee</span>
+                            <span>{finalDeliveryFee === 0 ? "FREE" : `RM ${finalDeliveryFee.toFixed(2)}`}</span>
+                        </div>
+                    )}
 
                     <div className="flex justify-between text-xl font-bold text-stone-900 bg-white p-4 rounded-xl shadow-sm border border-stone-100 mt-2">
                         <span>Total Payment</span> <span className="text-primary">RM {finalTotal?.toFixed(2)}</span>
@@ -317,7 +407,7 @@ export default function CheckoutPage({ clearCart }) {
             </div>
 
             {/* UPSELL POPUP MODAL (FOR NR) */}
-            {showUpsellModal && (
+            {showUpsellModal && !isPickup && (
                 <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
                     <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-scale-up text-center relative overflow-hidden">
                         <div className="absolute -top-10 -right-10 w-32 h-32 bg-green-100 rounded-full opacity-50"></div>

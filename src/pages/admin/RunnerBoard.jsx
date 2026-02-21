@@ -79,11 +79,17 @@ export default function RunnerBoard() {
             acc[order.pickupPoint].push(order);
             return acc;
         }, {});
+    const readyList = orders.filter((o) => o.status === "READY");
 
     const receivedList = orders.filter((o) => o.status === "RECEIVED");
     const prepList = orders.filter((o) => o.status === "PREPARING");
     const deliveryList = orders.filter((o) => o.status === "DELIVERY");
     const completedList = orders.filter((o) => o.status === "COMPLETED");
+    const isPickupBoard = (slotInfo?.type || "delivery") === "pickup";
+    const currentTab =
+        isPickupBoard && activeTab === "OUT"
+            ? "PREP"
+            : activeTab;
 
     const outList = [...deliveryList, ...completedList];
 
@@ -121,8 +127,6 @@ export default function RunnerBoard() {
         return () => unsubscribe();
     }, [slotId]);
 
-    
-
     return (
         <div className="h-screen flex flex-col bg-stone-900 text-stone-100 font-sans overflow-hidden">
             {/* Header */}
@@ -144,7 +148,9 @@ export default function RunnerBoard() {
                                 <Clock size={12} className="text-white" />
                                 <span className="text-white">
                                     Trip{" "}
-                                    {formatTripTime(slotInfo.deliveryTime)}
+                                    {isPickupBoard
+                                        ? `${formatTripTime(slotInfo.openTime)} - ${formatTripTime(slotInfo.cutoffTime)}`
+                                        : formatTripTime(slotInfo.deliveryTime)}
                                 </span>
                             </p>
                             </>
@@ -163,14 +169,14 @@ export default function RunnerBoard() {
 
             {/* Mobile Tabs */}
             <div className="md:hidden flex bg-stone-800 border-b border-stone-700 overflow-x-auto">
-                {["WRITE", "PREP", "READY", "OUT"].map((tab) => {
+                {(isPickupBoard ? ["WRITE", "PREP", "READY"] : ["WRITE", "PREP", "READY", "OUT"]).map((tab) => {
                     let count = 0;
                     if (tab === "WRITE") count = receivedList.length;
                     if (tab === "PREP") count = prepList.length;
-                    if (tab === "READY") count = Object.values(readyGroups).flat().length;
+                    if (tab === "READY") count = isPickupBoard ? readyList.length : Object.values(readyGroups).flat().length;
                     if (tab === "OUT") count = deliveryList.length; // Count only active delivery, not completed
 
-                    const isActive = activeTab === tab;
+                    const isActive = currentTab === tab;
                     return (
                         <button
                             key={tab}
@@ -197,11 +203,11 @@ export default function RunnerBoard() {
                         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
                     </div>
                 ) : (
-                    <div className="h-full flex gap-4 md:grid md:grid-cols-4">
+                    <div className={`h-full flex gap-4 md:grid ${isPickupBoard ? "md:grid-cols-3" : "md:grid-cols-4"}`}>
                         {/* 1. WRITE CUP */}
                         <div
                             className={`flex-1 flex flex-col bg-stone-800 rounded-xl overflow-hidden border border-stone-700 md:flex ${
-                                activeTab === "WRITE" ? "flex" : "hidden"
+                                currentTab === "WRITE" ? "flex" : "hidden"
                             }`}
                         >
                             <div className="bg-rose-600 p-3 text-white font-bold text-center uppercase text-sm shadow-sm flex justify-between items-center">
@@ -259,12 +265,12 @@ export default function RunnerBoard() {
                         {/* 2. WITH BARISTA */}
                         <div
                             className={`flex-1 flex flex-col bg-stone-800 rounded-xl overflow-hidden border border-stone-700 md:flex ${
-                                activeTab === "PREP" ? "flex" : "hidden"
+                                currentTab === "PREP" ? "flex" : "hidden"
                             }`}
                         >
                             <div className="bg-orange-500 p-3 text-white font-bold text-center uppercase text-sm shadow-sm flex justify-between items-center">
                                 <span className="flex items-center gap-2">
-                                    <Coffee size={16} /> With Barista
+                                    <Coffee size={16} /> Prep
                                 </span>
                                 <span className="bg-orange-700 px-2 rounded-full text-xs">
                                     {prepList.length}
@@ -308,7 +314,7 @@ export default function RunnerBoard() {
                                 ))}
                                 {prepList.length === 0 && (
                                     <div className="text-center p-10 text-stone-600 text-sm">
-                                        Waiting for runner...
+                                        No orders in prep
                                     </div>
                                 )}
                             </div>
@@ -317,30 +323,59 @@ export default function RunnerBoard() {
                         {/* 3. READY TO DELIVER */}
                         <div
                             className={`flex-1 flex flex-col bg-stone-800 rounded-xl overflow-hidden border border-stone-700 md:flex ${
-                                activeTab === "READY" ? "flex" : "hidden"
+                                currentTab === "READY" ? "flex" : "hidden"
                             }`}
                         >
                             <div className="bg-blue-600 p-3 text-white font-bold text-center uppercase text-sm shadow-sm flex justify-between items-center">
                                 <span className="flex items-center gap-2">
-                                    <Package size={16} /> Ready to Go
+                                    <Package size={16} /> Ready
                                 </span>
                                 <span className="bg-blue-800 px-2 rounded-full text-xs">
-                                    {Object.values(readyGroups).flat().length}
+                                    {isPickupBoard ? readyList.length : Object.values(readyGroups).flat().length}
                                 </span>
                             </div>
                             <div className="flex-1 overflow-y-auto p-2 space-y-2 bg-stone-800/50">
-                                {Object.entries(readyGroups).map(
-                                    ([location, groupOrders]) => (
-                                        <LocationBatchCard
-                                            key={location}
-                                            location={location}
-                                            groupOrders={groupOrders}
-                                            updateStatus={updateStatus}
-                                            setRunnerManifest={setRunnerManifest}
+                                {isPickupBoard
+                                    ? readyList.map((order) => (
+                                        <RunnerCard
+                                            key={order.id}
+                                            order={order}
+                                            accentColor="#2563eb"
+                                            secondaryBtn={
+                                                <button
+                                                    onClick={() =>
+                                                        updateStatus(order.id, "PREPARING")
+                                                    }
+                                                    className="btn-icon bg-stone-200 text-stone-600"
+                                                >
+                                                    <RotateCcw size={16} />
+                                                </button>
+                                            }
+                                            actionBtn={
+                                                <button
+                                                    onClick={() =>
+                                                        updateStatus(order.id, "COMPLETED")
+                                                    }
+                                                    className="btn-main bg-emerald-100 text-emerald-700 border border-emerald-200 hover:bg-emerald-200"
+                                                >
+                                                    Mark Ready Pickup <CheckCircle size={18} />
+                                                </button>
+                                            }
+                                            setSelectedOrder={setSelectedOrder}
                                         />
-                                    )
-                                )}
-                                {Object.keys(readyGroups).length === 0 && (
+                                    ))
+                                    : Object.entries(readyGroups).map(
+                                        ([location, groupOrders]) => (
+                                            <LocationBatchCard
+                                                key={location}
+                                                location={location}
+                                                groupOrders={groupOrders}
+                                                updateStatus={updateStatus}
+                                                setRunnerManifest={setRunnerManifest}
+                                            />
+                                        )
+                                    )}
+                                {((isPickupBoard && readyList.length === 0) || (!isPickupBoard && Object.keys(readyGroups).length === 0)) && (
                                     <div className="text-center p-10 text-stone-600 text-sm">
                                         No ready orders
                                     </div>
@@ -349,9 +384,10 @@ export default function RunnerBoard() {
                         </div>
 
                         {/* 4. OUT FOR DELIVERY (Active + History) */}
+                        {!isPickupBoard && (
                         <div
                             className={`flex-1 flex flex-col bg-stone-800 rounded-xl overflow-hidden border border-stone-700 opacity-90 md:flex ${
-                                activeTab === "OUT" ? "flex" : "hidden"
+                                currentTab === "OUT" ? "flex" : "hidden"
                             }`}
                         >
                             <div className="bg-emerald-600 p-3 text-white font-bold text-center uppercase text-sm shadow-sm flex justify-between items-center">
@@ -415,13 +451,14 @@ export default function RunnerBoard() {
                                 ))}
                             </div>
                         </div>
+                        )}
                     </div>
                 )}
             </div>
 
             {/* --- MODALS --- */}
             {/* Delivery Modal */}
-            {runnerManifest && (
+            {runnerManifest && !isPickupBoard && (
                 <div
                     className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
                     onClick={() => setRunnerManifest(null)}
@@ -565,17 +602,18 @@ export default function RunnerBoard() {
                                                         <span className="font-bold text-stone-800">
                                                             {item.name}
                                                         </span>
-                                                        <span
-                                                            className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase border ${
-                                                                item.protection ===
-                                                                "premium"
-                                                                    ? "bg-purple-50 text-purple-700 border-purple-200"
-                                                                    : "bg-blue-50 text-blue-700 border-blue-200"
-                                                            }`}
-                                                        >
-                                                            {item.protection ||
-                                                                "Basic"}
-                                                        </span>
+                                                        {selectedOrder.orderType !== "pickup" && item.protection && (
+                                                            <span
+                                                                className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase border ${
+                                                                    item.protection ===
+                                                                    "premium"
+                                                                        ? "bg-purple-50 text-purple-700 border-purple-200"
+                                                                        : "bg-blue-50 text-blue-700 border-blue-200"
+                                                                }`}
+                                                            >
+                                                                {item.protection}
+                                                            </span>
+                                                        )}
                                                     </div>
 
                                                     <div className="flex gap-1 flex-wrap mt-0.5">
