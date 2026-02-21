@@ -86,12 +86,8 @@ export default function RunnerBoard() {
     const deliveryList = orders.filter((o) => o.status === "DELIVERY");
     const completedList = orders.filter((o) => o.status === "COMPLETED");
     const isPickupBoard = (slotInfo?.type || "delivery") === "pickup";
-    const currentTab =
-        isPickupBoard && activeTab === "OUT"
-            ? "PREP"
-            : activeTab;
-
-    const outList = [...deliveryList, ...completedList];
+    const currentTab = activeTab;
+    const outList = isPickupBoard ? completedList : [...deliveryList, ...completedList];
 
     useEffect(() => {
         const fetchSlotInfo = async () => {
@@ -169,12 +165,12 @@ export default function RunnerBoard() {
 
             {/* Mobile Tabs */}
             <div className="md:hidden flex bg-stone-800 border-b border-stone-700 overflow-x-auto">
-                {(isPickupBoard ? ["WRITE", "PREP", "READY"] : ["WRITE", "PREP", "READY", "OUT"]).map((tab) => {
+                {["WRITE", "PREP", "READY", "OUT"].map((tab) => {
                     let count = 0;
                     if (tab === "WRITE") count = receivedList.length;
                     if (tab === "PREP") count = prepList.length;
                     if (tab === "READY") count = isPickupBoard ? readyList.length : Object.values(readyGroups).flat().length;
-                    if (tab === "OUT") count = deliveryList.length; // Count only active delivery, not completed
+                    if (tab === "OUT") count = isPickupBoard ? completedList.length : deliveryList.length;
 
                     const isActive = currentTab === tab;
                     return (
@@ -187,7 +183,7 @@ export default function RunnerBoard() {
                                     : "border-transparent text-stone-500 hover:text-stone-300"
                             }`}
                         >
-                            {tab}{" "}
+                            {isPickupBoard && tab === "OUT" ? "COMPLETED" : tab}{" "}
                             <span className="ml-1 bg-stone-900 text-stone-400 px-1.5 py-0.5 rounded-full text-[10px] border border-stone-700">
                                 {count}
                             </span>
@@ -203,7 +199,7 @@ export default function RunnerBoard() {
                         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
                     </div>
                 ) : (
-                    <div className={`h-full flex gap-4 md:grid ${isPickupBoard ? "md:grid-cols-3" : "md:grid-cols-4"}`}>
+                    <div className="h-full flex gap-4 md:grid md:grid-cols-4">
                         {/* 1. WRITE CUP */}
                         <div
                             className={`flex-1 flex flex-col bg-stone-800 rounded-xl overflow-hidden border border-stone-700 md:flex ${
@@ -305,7 +301,7 @@ export default function RunnerBoard() {
                                                 }
                                                 className="btn-main bg-orange-500 text-white hover:bg-orange-600"
                                             >
-                                                Cup Received{" "}
+                                                {isPickupBoard ? "Ready To Pickup " : "Cup Received "}
                                                 <CheckCircle size={16} />
                                             </button>
                                         }
@@ -358,7 +354,7 @@ export default function RunnerBoard() {
                                                     }
                                                     className="btn-main bg-emerald-100 text-emerald-700 border border-emerald-200 hover:bg-emerald-200"
                                                 >
-                                                    Mark Ready Pickup <CheckCircle size={18} />
+                                                    Mark Completed <CheckCircle size={18} />
                                                 </button>
                                             }
                                             setSelectedOrder={setSelectedOrder}
@@ -383,19 +379,23 @@ export default function RunnerBoard() {
                             </div>
                         </div>
 
-                        {/* 4. OUT FOR DELIVERY (Active + History) */}
-                        {!isPickupBoard && (
+                        {/* 4. OUT FOR DELIVERY / COMPLETED */}
                         <div
                             className={`flex-1 flex flex-col bg-stone-800 rounded-xl overflow-hidden border border-stone-700 opacity-90 md:flex ${
                                 currentTab === "OUT" ? "flex" : "hidden"
                             }`}
                         >
-                            <div className="bg-emerald-600 p-3 text-white font-bold text-center uppercase text-sm shadow-sm flex justify-between items-center">
+                            <div className={`p-3 text-white font-bold text-center uppercase text-sm shadow-sm flex justify-between items-center ${
+                                isPickupBoard ? "bg-violet-600" : "bg-emerald-600"
+                            }`}>
                                 <span className="flex items-center gap-2">
-                                    <Truck size={16} /> On the Way
+                                    {isPickupBoard ? <CheckCircle size={16} /> : <Truck size={16} />}
+                                    {isPickupBoard ? "Completed" : "On the Way"}
                                 </span>
-                                <span className="bg-emerald-800 px-2 rounded-full text-xs">
-                                    {deliveryList.length}
+                                <span className={`px-2 rounded-full text-xs ${
+                                    isPickupBoard ? "bg-violet-800" : "bg-emerald-800"
+                                }`}>
+                                    {isPickupBoard ? completedList.length : deliveryList.length}
                                 </span>
                             </div>
                             <div className="flex-1 overflow-y-auto p-2 space-y-2 bg-stone-800/50">
@@ -408,17 +408,13 @@ export default function RunnerBoard() {
                                                 ? "#57534e"
                                                 : "#059669"
                                         }
-                                        isCompleted={
-                                            order.status === "COMPLETED"
-                                        }
+                                        isCompleted={order.status === "COMPLETED"}
                                         secondaryBtn={
+                                            !isPickupBoard &&
                                             order.status === "DELIVERY" && (
                                                 <button
                                                     onClick={() =>
-                                                        updateStatus(
-                                                            order.id,
-                                                            "READY"
-                                                        )
+                                                        updateStatus(order.id, "READY")
                                                     }
                                                     className="btn-icon bg-stone-200 text-stone-600"
                                                 >
@@ -434,24 +430,24 @@ export default function RunnerBoard() {
                                             ) : (
                                                 <button
                                                     onClick={() =>
-                                                        updateStatus(
-                                                            order.id,
-                                                            "COMPLETED"
-                                                        )
+                                                        updateStatus(order.id, "COMPLETED")
                                                     }
                                                     className="btn-main bg-emerald-100 text-emerald-700 border border-emerald-200 hover:bg-emerald-200"
                                                 >
-                                                    Mark Done{" "}
-                                                    <CheckCircle size={18} />
+                                                    Mark Done <CheckCircle size={18} />
                                                 </button>
                                             )
                                         }
                                         setSelectedOrder={setSelectedOrder}
                                     />
                                 ))}
+                                {outList.length === 0 && (
+                                    <div className="text-center p-10 text-stone-600 text-sm">
+                                        {isPickupBoard ? "No completed orders" : "No out-for-delivery orders"}
+                                    </div>
+                                )}
                             </div>
                         </div>
-                        )}
                     </div>
                 )}
             </div>
