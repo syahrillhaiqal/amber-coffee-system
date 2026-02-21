@@ -189,11 +189,13 @@ export default function CartDrawer({ cart, close, tripInfo, removeFromCart, upda
                 {/* Footer */}
                 {cart.length > 0 && (
                     <div className="shrink-0 border-t bg-white shadow-[0_-5px_20px_rgba(0,0,0,0.05)] pb-[calc(1rem+env(safe-area-inset-bottom))]">
-                        <div className="px-4 pt-3 pb-2 space-y-1">
+                        <div className={`px-4 ${!isPickup ? "pt-3" : ""}  pb-2 space-y-1`}>
+                            {!isPickup && (
                             <div className="flex justify-between text-xs text-gray-500">
                                 <span>Subtotal</span>
                                 <span>RM {subTotal.toFixed(2)}</span>
                             </div>
+                            )}
                             {!isPickup && (
                                 <div className="flex justify-between text-xs text-blue-600 font-medium">
                                     <span>Total Protection Fees</span>

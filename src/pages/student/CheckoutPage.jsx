@@ -7,6 +7,7 @@ import { createOrder, getFilledCupsForSlot } from "../../services/orderService";
 import { getSlotById } from "../../services/slotService"; 
 import { logEvent } from "firebase/analytics";
 import { analytics } from "../../lib/firebase";
+import { toTimeInput, parseTimeToMinutes, buildTimeOptions, getCurrentTimeMinutes, combineDateTime } from "../../lib/date";
 
 export default function CheckoutPage({ clearCart }) { 
 
@@ -18,41 +19,15 @@ export default function CheckoutPage({ clearCart }) {
 
     const cartCups = cart ? cart.reduce((sum, item) => sum + item.quantity, 0) : 0;
 
-    const toTimeInput = (isoString) => {
-        if (!isoString) return "";
-        const date = new Date(isoString);
-        const hours = String(date.getHours()).padStart(2, "0");
-        const minutes = String(date.getMinutes()).padStart(2, "0");
-        return `${hours}:${minutes}`;
-    };
-
-    const parseTimeToMinutes = (timeValue) => {
-        if (!timeValue || !timeValue.includes(":")) return null;
-        const [hours, minutes] = timeValue.split(":").map(Number);
-        return hours * 60 + minutes;
-    };
-
     const openTimeValue = toTimeInput(tripInfo?.openTime);
     const cutoffTimeValue = toTimeInput(tripInfo?.cutoffTime);
-    const defaultPickupTime = openTimeValue || "";
-
-    const pickupTimeOptions = (() => {
-        if (!openTimeValue || !cutoffTimeValue) return [];
-        const start = parseTimeToMinutes(openTimeValue);
-        const end = parseTimeToMinutes(cutoffTimeValue);
-        if (start === null || end === null || end < start) return [];
-
-        const options = [];
-        for (let value = start; value <= end; value += 15) {
-            const hh = String(Math.floor(value / 60)).padStart(2, "0");
-            const mm = String(value % 60).padStart(2, "0");
-            options.push(`${hh}:${mm}`);
-        }
-        if (!options.includes(cutoffTimeValue)) {
-            options.push(cutoffTimeValue);
-        }
-        return options;
-    })();
+    const currentTimeMinutes = getCurrentTimeMinutes();
+    const pickupTimeOptions = buildTimeOptions(openTimeValue, cutoffTimeValue, 5);
+    const futurePickupTimeOptions = pickupTimeOptions.filter((timeValue) => {
+        const optionMinutes = parseTimeToMinutes(timeValue);
+        return optionMinutes !== null && optionMinutes > currentTimeMinutes;
+    });
+    const defaultPickupTime = futurePickupTimeOptions[0] || "";
 
     const [loading, setLoading] = useState(false);
     const [showUpsellModal, setShowUpsellModal] = useState(false);
@@ -156,6 +131,7 @@ export default function CheckoutPage({ clearCart }) {
             const selectedMinutes = parseTimeToMinutes(formData.pickupTime);
             const openMinutes = parseTimeToMinutes(openTimeValue);
             const closeMinutes = parseTimeToMinutes(cutoffTimeValue);
+            const currentMinutes = getCurrentTimeMinutes();
 
             if (
                 selectedMinutes === null ||
@@ -165,6 +141,10 @@ export default function CheckoutPage({ clearCart }) {
                 selectedMinutes > closeMinutes
             ) {
                 return alert("Pickup time must be within the available pickup window.");
+            }
+
+            if (selectedMinutes <= currentMinutes) {
+                return alert("The pickup time has already passed. Please select a future time.");
             }
         }
 
@@ -193,6 +173,13 @@ export default function CheckoutPage({ clearCart }) {
 
             const { paymentUrl, billCode } = response.data;
 
+            const pickupDateStr = String(tripInfo.openTime).split("T")[0];
+
+            const pickupTimeForDb =
+                isPickup && pickupDateStr && formData.pickupTime
+                    ? combineDateTime(pickupDateStr, formData.pickupTime)
+                    : "";
+
             const orderPayload = {
                 orderId: shortId,
                 billCode: billCode || "", 
@@ -203,7 +190,7 @@ export default function CheckoutPage({ clearCart }) {
                 customerEmail: formData.email, 
                 orderType: isPickup ? "pickup" : "delivery",
                 pickupPoint: isPickup ? "Pickup Counter" : formData.pickupPoint,
-                pickupTime: isPickup ? formData.pickupTime : "",
+                pickupTime: isPickup ? pickupTimeForDb : "",
                 address: isPickup ? "" : (formData.address || ""), 
                 items: cart,
                 
@@ -324,7 +311,7 @@ export default function CheckoutPage({ clearCart }) {
                                     value={formData.pickupTime}
                                     onChange={e => setFormData({ ...formData, pickupTime: e.target.value })}
                                 >
-                                    {pickupTimeOptions.map((option) => (
+                                    {futurePickupTimeOptions.map((option) => (
                                         <option key={option} value={option}>
                                             {option}
                                         </option>
@@ -371,11 +358,13 @@ export default function CheckoutPage({ clearCart }) {
                 </div>
 
                 {/* Summary */}
-                <div className="space-y-2 pt-2">
+                <div className={`space-y-2 ${!isPickup ? "pt-2" : ""} `}>
+                    {!isPickup && (
                     <div className="flex justify-between text-sm text-gray-500 px-2">
                         <span>Items Subtotal</span>
                         <span>RM {subTotal?.toFixed(2)}</span>
                     </div>
+                    )}
                     {!isPickup && (
                         <div className="flex justify-between text-sm text-blue-600 font-medium px-2">
                             <span>Protection Fee</span>

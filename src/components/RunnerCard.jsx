@@ -1,5 +1,5 @@
 import React from 'react'
-import { MapPin, RotateCcw, Trash2 } from "lucide-react";
+import { MapPin, RotateCcw, Trash2, Clock } from "lucide-react";
 
 export default function RunnerCard({order, actionBtn, secondaryBtn, accentColor, isCompleted, setSelectedOrder}) {
 
@@ -12,6 +12,24 @@ export default function RunnerCard({order, actionBtn, secondaryBtn, accentColor,
             }`}
             style={{ borderLeftColor: accentColor }}
         >
+            {isPickupOrder && (
+                <div
+                    className="px-3 py-2 bg-stone-50 border-b border-stone-100"
+                    onClick={() => setSelectedOrder(order)}
+                >
+                    <p className="text-[11px] font-black text-stone-700 uppercase tracking-wide flex items-center gap-1">
+                        <Clock size={12} />
+                        Pickup At: 
+                        <span className="text-sm">
+                        {new Date(order?.pickupTime).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                        })}
+                        </span>
+                    </p>
+                </div>
+            )}
+
             <div
                 className="p-3 bg-stone-50 border-b border-stone-100 flex justify-between items-center"
                 onClick={() => setSelectedOrder(order)}

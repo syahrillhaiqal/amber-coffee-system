@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Calendar, Clock, Package, AlertCircle, Loader2 } from "lucide-react";
+import { Calendar, Clock, Package, AlertCircle, Loader2, Truck, Store } from "lucide-react";
 import { collection, onSnapshot } from "firebase/firestore";
 import { analytics, db } from "../../lib/firebase";
 import logo from "../../assets/amber-coffee-logo-only.png";
@@ -86,28 +86,30 @@ export default function TripSelection() {
                     <span className="text-sm">{displayDate}</span>
                 </div>
             </div>
-
+            
             <div className="mb-4 bg-white p-1 rounded-xl border border-stone-200 shadow-sm grid grid-cols-2 gap-1">
                 <button
                     type="button"
                     onClick={() => setSelectedOrderType("delivery")}
-                    className={`py-2 rounded-lg text-sm font-bold transition ${
+                    className={`py-2 rounded-lg text-sm font-bold transition flex items-center justify-center gap-2 ${
                         selectedOrderType === "delivery"
                             ? "bg-stone-900 text-white"
-                            : "bg-stone-50 text-stone-600"
+                            : "bg-stone-50 text-stone-600 hover:bg-stone-100"
                     }`}
                 >
+                    <Truck size={16} />
                     Delivery
                 </button>
                 <button
                     type="button"
                     onClick={() => setSelectedOrderType("pickup")}
-                    className={`py-2 rounded-lg text-sm font-bold transition ${
+                    className={`py-2 rounded-lg text-sm font-bold transition flex items-center justify-center gap-2 ${
                         selectedOrderType === "pickup"
-                            ? "bg-stone-900 text-white"
-                            : "bg-stone-50 text-stone-600"
+                            ? "bg-primary text-white"
+                            : "bg-stone-50 text-stone-600 hover:bg-stone-100"
                     }`}
                 >
+                    <Store size={16} />
                     Pickup
                 </button>
             </div>

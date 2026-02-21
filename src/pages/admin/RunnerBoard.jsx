@@ -3,6 +3,7 @@ import { useParams, Link, useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, CheckCircle, Truck, RotateCcw, Trash2, Clock, MapPin, Eye, X, Package, ClipboardList, PenTool, Coffee, ChevronDown, ChevronUp } from "lucide-react";
 import { subscribeToOrdersBySlot, updateOrderStatus, deleteOrder, batchUpdateOrderStatuses } from "../../services/orderService";
 import { getSlotById } from "../../services/slotService";
+import { parseTimeToMinutes } from "../../lib/date";
 import RunnerCard from "../../components/RunnerCard";
 import LocationBatchCard from "../../components/LocationBatchCard";
 
@@ -18,6 +19,8 @@ export default function RunnerBoard() {
 
     const location = useLocation();
     const navigate = useNavigate();
+
+    const isPickupBoard = (slotInfo?.type || "delivery") === "pickup";
 
     const updateStatus = async (orderId, newStatus) => {
         try {
@@ -72,20 +75,31 @@ export default function RunnerBoard() {
         });
     }
     
-    const readyGroups = orders
+    const pickupSortedOrders = isPickupBoard
+        ? [...orders].sort((a, b) => {
+              const aMinutes = parseTimeToMinutes(a.pickupTime);
+              const bMinutes = parseTimeToMinutes(b.pickupTime);
+
+              if (aMinutes !== null && bMinutes !== null && aMinutes !== bMinutes) {
+                  return bMinutes - aMinutes;
+              }
+
+              return new Date(b.createdAt) - new Date(a.createdAt);
+          })
+        : orders;
+
+    const readyGroups = pickupSortedOrders
         .filter((o) => o.status === "READY")
         .reduce((acc, order) => {
             if (!acc[order.pickupPoint]) acc[order.pickupPoint] = [];
             acc[order.pickupPoint].push(order);
             return acc;
         }, {});
-    const readyList = orders.filter((o) => o.status === "READY");
-
-    const receivedList = orders.filter((o) => o.status === "RECEIVED");
-    const prepList = orders.filter((o) => o.status === "PREPARING");
-    const deliveryList = orders.filter((o) => o.status === "DELIVERY");
-    const completedList = orders.filter((o) => o.status === "COMPLETED");
-    const isPickupBoard = (slotInfo?.type || "delivery") === "pickup";
+    const readyList = pickupSortedOrders.filter((o) => o.status === "READY");
+    const receivedList = pickupSortedOrders.filter((o) => o.status === "RECEIVED");
+    const prepList = pickupSortedOrders.filter((o) => o.status === "PREPARING");
+    const deliveryList = pickupSortedOrders.filter((o) => o.status === "DELIVERY");
+    const completedList = pickupSortedOrders.filter((o) => o.status === "COMPLETED");
     const currentTab = activeTab;
     const outList = isPickupBoard ? completedList : [...deliveryList, ...completedList];
 
@@ -534,6 +548,15 @@ export default function RunnerBoard() {
                                 <h2 className="text-xl font-bold text-stone-800">
                                     Order #{selectedOrder.orderId}
                                 </h2>
+                                {selectedOrder.orderType === "pickup" && (
+                                    <p className="text-sm font-extrabold text-stone-800 mt-0.5">
+                                        Pickup At: {" "}
+                                        {new Date(selectedOrder.pickupTime).toLocaleTimeString([], {
+                                            hour: "2-digit",
+                                            minute: "2-digit",
+                                        })}
+                                    </p>
+                                )}
                                 <p className="text-stone-500 text-xs font-bold uppercase">
                                     {selectedOrder.status}
                                 </p>
