@@ -137,8 +137,11 @@ export default function AdminSchedule() {
                     const typeLabel = (slot.type || "delivery").toUpperCase();
                     const type = getSlotType(slot);
                     const status = getSlotStatus(slot);
-                    const slotTime = slot.type === "delivery" ? slot.deliveryTime : slot.openTime;
+                    const slotTime = !isPickup ? slot.deliveryTime : slot.openTime;
                     const dateStr = new Date(slotTime).toLocaleDateString([], { day: 'numeric', month: 'short' });
+                    const timeStr = isPickup 
+                        ? `${formatTime(slot.openTime)} - ${formatTime(slot.cutoffTime)}` 
+                        : formatTime(slot.deliveryTime);
 
                     return (
                         <div key={slot.id} className={`bg-white p-5 rounded-3xl border shadow-sm relative group transition-all hover:shadow-md flex flex-col ${status.label === 'ENDED' ? 'border-stone-100 opacity-80' : 'border-stone-200'}`}>
@@ -157,8 +160,8 @@ export default function AdminSchedule() {
                                     </span>
                                 </div>
 
-                                <h3 className="text-3xl font-black text-stone-800 tracking-tight flex items-end gap-2">
-                                    {formatTime(slotTime)}
+                                <h3 className={`${isPickup ? "text-2xl" : "text-3xl"}  font-black text-stone-800 tracking-tight flex items-end gap-2`}>
+                                    {timeStr}
                                     <span className="text-sm font-bold text-stone-400 mb-1">Trip</span> 
                                 </h3>
                                 {/* Minimalist Open/Close Times */}
