@@ -3,7 +3,7 @@ import { useParams, Link, useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, CheckCircle, Truck, RotateCcw, Trash2, Clock, MapPin, Eye, X, Package, ClipboardList, PenTool, Coffee, ChevronDown, ChevronUp } from "lucide-react";
 import { subscribeToOrdersBySlot, updateOrderStatus, deleteOrder, batchUpdateOrderStatuses } from "../../services/orderService";
 import { getSlotById } from "../../services/slotService";
-import { parseTimeToMinutes } from "../../lib/date";
+import { formatDisplayDateShort, formatTime, getPickupTimeMinutes } from "../../lib/date";
 import RunnerCard from "../../components/RunnerCard";
 import LocationBatchCard from "../../components/LocationBatchCard";
 
@@ -57,34 +57,20 @@ export default function RunnerBoard() {
             console.error("Error confirming batch delivery:", error);
         }
     };
-
-    const formatTripTime = (isoString) => {
-        if (!isoString) return "";
-        return new Date(isoString).toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-        });
-    };    
-
-    const formatDisplayDate = (dateString) => {
-        if (!dateString) return "";
-        return new Date(dateString).toLocaleDateString('en-GB', {
-            day: '2-digit', 
-            month: 'short', 
-            year: 'numeric'
-        });
-    }
     
     const pickupSortedOrders = isPickupBoard
         ? [...orders].sort((a, b) => {
-              const aMinutes = parseTimeToMinutes(a.pickupTime);
-              const bMinutes = parseTimeToMinutes(b.pickupTime);
+              const aMinutes = getPickupTimeMinutes(a.pickupTime);
+              const bMinutes = getPickupTimeMinutes(b.pickupTime);
 
               if (aMinutes !== null && bMinutes !== null && aMinutes !== bMinutes) {
-                  return bMinutes - aMinutes;
+                  return aMinutes - bMinutes;
               }
 
-              return new Date(b.createdAt) - new Date(a.createdAt);
+              if (aMinutes !== null && bMinutes === null) return -1;
+              if (aMinutes === null && bMinutes !== null) return 1;
+
+              return new Date(a.createdAt) - new Date(b.createdAt);
           })
         : orders;
 
@@ -152,15 +138,15 @@ export default function RunnerBoard() {
                         {slotInfo ? (
                             <>
                             <h1 className="text-lg font-black text-white leading-tight">
-                                {formatDisplayDate(slotInfo.dateString)}
+                                {formatDisplayDateShort(slotInfo.dateString)}
                             </h1>
                             <p className="text-xs text-stone-400 font-bold uppercase tracking-wider flex items-center gap-1">
                                 <Clock size={12} className="text-white" />
                                 <span className="text-white">
                                     Trip{" "}
                                     {isPickupBoard
-                                        ? `${formatTripTime(slotInfo.openTime)} - ${formatTripTime(slotInfo.cutoffTime)}`
-                                        : formatTripTime(slotInfo.deliveryTime)}
+                                        ? `${formatTime(slotInfo.openTime)} - ${formatTime(slotInfo.cutoffTime)}`
+                                        : formatTime(slotInfo.deliveryTime)}
                                 </span>
                             </p>
                             </>
@@ -551,10 +537,7 @@ export default function RunnerBoard() {
                                 {selectedOrder.orderType === "pickup" && (
                                     <p className="text-sm font-extrabold text-stone-800 mt-0.5">
                                         Pickup At: {" "}
-                                        {new Date(selectedOrder.pickupTime).toLocaleTimeString([], {
-                                            hour: "2-digit",
-                                            minute: "2-digit",
-                                        })}
+                                        {formatTime(selectedOrder.pickupTime)}
                                     </p>
                                 )}
                                 <p className="text-stone-500 text-xs font-bold uppercase">

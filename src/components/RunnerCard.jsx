@@ -1,5 +1,6 @@
 import React from 'react'
 import { MapPin, RotateCcw, Trash2, Clock } from "lucide-react";
+import { formatTime } from '../lib/date';
 
 export default function RunnerCard({order, actionBtn, secondaryBtn, accentColor, isCompleted, setSelectedOrder}) {
 
@@ -21,10 +22,7 @@ export default function RunnerCard({order, actionBtn, secondaryBtn, accentColor,
                         <Clock size={12} />
                         Pickup At: 
                         <span className="text-sm">
-                        {new Date(order?.pickupTime).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                        })}
+                            {formatTime(order?.pickupTime)}
                         </span>
                     </p>
                 </div>
@@ -43,10 +41,7 @@ export default function RunnerCard({order, actionBtn, secondaryBtn, accentColor,
                     </span>
                 </div>
                 <div className="text-xs font-bold text-stone-400">
-                    {new Date(order.createdAt).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                    })}
+                    {formatTime(order.createdAt)}
                 </div>
             </div>
             <div

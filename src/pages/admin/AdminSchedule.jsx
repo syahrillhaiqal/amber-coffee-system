@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { Calendar as CalIcon, Plus, Users, ArrowRight, Trash2, History, Clock } from "lucide-react";
 import { subscribeToAllSlots, deleteSlot, getSlotStatus, getSlotType } from "../../services/slotService";
 import { subscribeToAllOrders } from "../../services/orderService";
+import { formatTime } from "../../lib/date";
 
 export default function AdminSchedule() {
 
@@ -89,11 +90,6 @@ export default function AdminSchedule() {
         }
     };
 
-    const formatTime = (isoString) => {
-        if (!isoString) return "";
-        return new Date(isoString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    }
-
     return (
         <div className="space-y-6">
             {/* Header & Controls */}
@@ -178,13 +174,13 @@ export default function AdminSchedule() {
                                 <Users size={16} /> 
                                 <span className="font-bold">{slot.cupsCount}</span> 
                                 <span className="text-stone-400">Cups</span>
-                                {isPickup ? (
-                                    <span className="text-stone-400">(No limit)</span>
-                                ) : (
+                                {!isPickup ? (
                                     <>
                                         <span className="text-stone-300 mx-1">/</span>
                                         <span className="text-stone-400">{slot.maxCapacity} max</span>
                                     </>
+                                ) : (
+                                    ""
                                 )}
                             </div>
 

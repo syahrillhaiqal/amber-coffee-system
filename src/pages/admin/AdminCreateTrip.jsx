@@ -217,7 +217,7 @@ export default function AdminCreateTrip() {
                     <div className="mb-4 flex justify-between items-end border-b border-gray-100 pb-4">
                         <div>
                             <h2 className="font-bold text-gray-800 flex items-center gap-2 mb-1">
-                                <span className="bg-stone-900 text-white w-6 h-6 rounded flex items-center justify-center text-xs">4</span> Select Menu
+                                <span className="bg-stone-900 text-white w-6 h-6 rounded flex items-center justify-center text-xs">{tripType === "pickup" ? "3" : "4"}</span> Select Menu
                             </h2>
                             <p className="text-xs text-gray-400">Choose what items are available for this trip.</p>
                         </div>

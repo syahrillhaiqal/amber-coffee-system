@@ -7,7 +7,7 @@ import { createOrder, getFilledCupsForSlot } from "../../services/orderService";
 import { getSlotById } from "../../services/slotService"; 
 import { logEvent } from "firebase/analytics";
 import { analytics } from "../../lib/firebase";
-import { toTimeInput, parseTimeToMinutes, buildTimeOptions, getCurrentTimeMinutes, combineDateTime } from "../../lib/date";
+import { parseTimeToMinutes, buildTimeOptions, getCurrentTimeMinutes, combineDateTime, formatTime } from "../../lib/date";
 
 export default function CheckoutPage({ clearCart }) { 
 
@@ -19,8 +19,8 @@ export default function CheckoutPage({ clearCart }) {
 
     const cartCups = cart ? cart.reduce((sum, item) => sum + item.quantity, 0) : 0;
 
-    const openTimeValue = toTimeInput(tripInfo?.openTime);
-    const cutoffTimeValue = toTimeInput(tripInfo?.cutoffTime);
+    const openTimeValue = formatTime(tripInfo?.openTime);
+    const cutoffTimeValue = formatTime(tripInfo?.cutoffTime);
     const currentTimeMinutes = getCurrentTimeMinutes();
     const pickupTimeOptions = buildTimeOptions(openTimeValue, cutoffTimeValue, 5);
     const futurePickupTimeOptions = pickupTimeOptions.filter((timeValue) => {
@@ -397,7 +397,7 @@ export default function CheckoutPage({ clearCart }) {
 
             {/* UPSELL POPUP MODAL (FOR NR) */}
             {showUpsellModal && !isPickup && (
-                <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+                <div className="fixed inset-0 z-80 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
                     <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-scale-up text-center relative overflow-hidden">
                         <div className="absolute -top-10 -right-10 w-32 h-32 bg-green-100 rounded-full opacity-50"></div>
 

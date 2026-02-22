@@ -189,7 +189,7 @@ export default function TripSelection() {
                                             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-0.5">
                                                 {isPickup ? "Pickup" : "Delivery"}
                                             </p>
-                                            <p className="text-2xl font-black text-gray-800">
+                                            <p className={`${isPickup ? "text-xl" : "text-2xl"} font-black text-gray-800`}>
                                                 {timeStr}
                                             </p>
                                         </div>
