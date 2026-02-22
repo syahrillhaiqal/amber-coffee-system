@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, MapPin, Loader2, Truck, Mail, Gift, ShoppingBag, Clock } from "lucide-react"; 
 import axios from "axios";
@@ -229,6 +229,18 @@ export default function CheckoutPage({ clearCart }) {
         }
     };
     
+    useEffect(() => {
+        // If it's pickup, we have options available, and the currently selected time is no longer inside the available future options...
+        if (isPickup && futurePickupTimeOptions.length > 0 && !futurePickupTimeOptions.includes(formData.pickupTime)) {
+            
+            // Auto-update the state to the next available valid time
+            setFormData(prev => ({
+                ...prev,
+                pickupTime: futurePickupTimeOptions[0]
+            }));
+        }
+    }, [futurePickupTimeOptions[0], formData.pickupTime, isPickup]); 
+
     if (!cart || cart.length === 0) {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
