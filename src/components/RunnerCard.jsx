@@ -15,7 +15,7 @@ export default function RunnerCard({order, actionBtn, secondaryBtn, accentColor,
         >
             {isPickupOrder && (
                 <div
-                    className="px-3 py-2 bg-stone-50 border-b border-stone-100"
+                    className="px-3 pt-2 bg-stone-50"
                     onClick={() => setSelectedOrder(order)}
                 >
                     <p className="text-[11px] font-black text-stone-700 uppercase tracking-wide flex items-center gap-1">
@@ -29,7 +29,7 @@ export default function RunnerCard({order, actionBtn, secondaryBtn, accentColor,
             )}
 
             <div
-                className="p-3 bg-stone-50 border-b border-stone-100 flex justify-between items-center"
+                className="px-3 pt-2 bg-stone-50 border-b border-stone-100 flex justify-between items-center"
                 onClick={() => setSelectedOrder(order)}
             >
                 <div className="flex items-center gap-2">

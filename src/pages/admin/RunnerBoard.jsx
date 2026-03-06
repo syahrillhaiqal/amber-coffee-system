@@ -535,14 +535,11 @@ export default function RunnerBoard() {
                                     Order #{selectedOrder.orderId}
                                 </h2>
                                 {selectedOrder.orderType === "pickup" && (
-                                    <p className="text-sm font-extrabold text-stone-800 mt-0.5">
+                                    <p className="text-stone-500 text-xs font-bold uppercase">
                                         Pickup At: {" "}
                                         {formatTime(selectedOrder.pickupTime)}
                                     </p>
                                 )}
-                                <p className="text-stone-500 text-xs font-bold uppercase">
-                                    {selectedOrder.status}
-                                </p>
                             </div>
                             <button
                                 onClick={() => setSelectedOrder(null)}
