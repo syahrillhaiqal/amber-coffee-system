@@ -3,6 +3,7 @@ import { useLocation, Link } from "react-router-dom";
 import { Download, MessageCircle } from "lucide-react";
 import { domToPng } from "modern-screenshot";
 import logo from "../../assets/amber-coffee.png";
+import { formatTime } from "../../lib/date";
 
 export default function ReceiptPage() {
 
@@ -150,7 +151,7 @@ export default function ReceiptPage() {
                     {isPickup ? (
                         <>
                             <p className="text-xs text-primary font-bold uppercase mb-1">Pickup Time</p>
-                            <p className="text-lg font-bold text-stone-800">{pickupTime || "Not selected"}</p>
+                            <p className="text-lg font-bold text-stone-800">{formatTime(pickupTime) || "Not selected"}</p>
                         </>
                     ) : (
                         <>
