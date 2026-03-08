@@ -168,18 +168,20 @@ export default function ReceiptPage() {
                 </div>
 
                 {/* AMBER CONTACT */}
-                <div className="mt-4 pt-4 border-t border-stone-300 text-center">
-                    <p className="text-[12px] text-stone-400 font-medium mb-1">Need to contact the runner?</p>
-                    <a 
-                        href="https://wa.me/601164971911" 
-                        target="_blank" 
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-2 text-xs font-bold text-stone-600 hover:text-green-600 transition-colors bg-stone-100 px-4 py-2 rounded-full"
-                    >
-                        <MessageCircle size={14} className="text-green-500"/>
-                        +60 11-6497 1911 (Amber Runner)
-                    </a>
-                </div>
+                {!isPickup && (
+                    <div className="mt-4 pt-4 border-t border-stone-300 text-center">
+                        <p className="text-[12px] text-stone-400 font-medium mb-1">Need to contact the runner?</p>
+                        <a 
+                            href="https://wa.me/601164971911" 
+                            target="_blank" 
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-2 text-xs font-bold text-stone-600 hover:text-green-600 transition-colors bg-stone-100 px-4 py-2 rounded-full"
+                        >
+                            <MessageCircle size={14} className="text-green-500"/>
+                            +60 11-6497 1911 (Amber Runner)
+                        </a>
+                    </div>
+                )}
 
                 <div className="mt-2 bg-primary/10 text-primary py-3 px-4 rounded-xl border border-primary/20">
                     <p className="text-sm font-bold flex flex-col items-center justify-center gap-1 text-center leading-snug">

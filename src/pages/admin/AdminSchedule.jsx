@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Calendar as CalIcon, Plus, Users, ArrowRight, Trash2, History, Clock } from "lucide-react";
-import { subscribeToAllSlots, deleteSlot, getSlotStatus, getSlotType } from "../../services/slotService";
+import { Calendar as CalIcon, Plus, Users, ArrowRight, Trash2, History, Clock, User, Loader2, Bike } from "lucide-react";
+import { subscribeToAllSlots, deleteSlot, getSlotStatus, getSlotType, updateSlotRider } from "../../services/slotService";
 import { subscribeToAllOrders } from "../../services/orderService";
+import { subscribeToActiveRiders } from "../../services/riderService";
 import { formatTime } from "../../lib/date";
 
 export default function AdminSchedule() {
@@ -18,8 +19,22 @@ export default function AdminSchedule() {
     const location = useLocation();
     const [selectedDate, setSelectedDate] = useState(getTodayDate());
     const [slots, setSlots] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [_loading, setLoading] = useState(true);
     const [viewMode, setViewMode] = useState(location.state?.restoredViewMode || "upcoming");
+    const [activeRiders, setActiveRiders] = useState([]);
+    const [riderModal, setRiderModal] = useState({ open: false, slot: null });
+    const [selectedRiderId, setSelectedRiderId] = useState("");
+    const [savingRider, setSavingRider] = useState(false);
+
+    useEffect(() => {
+        const unsubscribe = subscribeToActiveRiders((riders) => {
+            setActiveRiders(riders);
+        });
+
+        return () => {
+            if (typeof unsubscribe === "function") unsubscribe();
+        };
+    }, []);
 
     useEffect(() => {
         // Subscribe to slots
@@ -81,12 +96,61 @@ export default function AdminSchedule() {
         if (slot.cupsCount > 0) {
             return alert("Cannot delete a trip that has orders.");
         }
-        if (confirm("Delete this slot?")) {
+        if (confirm("Delete this trip?")) {
             try {
                 await deleteSlot(slot.id);
             } catch (error) {
-                console.error("Error deleting slot:", error);
+                console.error("Error deleting trip:", error);
             }
+        }
+    };
+
+    const canEditTripRider = (slot) => {
+        const isDelivery = (slot.type || "delivery") === "delivery";
+        if (!isDelivery || !slot.deliveryTime) return false;
+
+        return new Date() < new Date(slot.deliveryTime);
+    };
+
+    const openRiderModal = (slot) => {
+        if (!canEditTripRider(slot)) return;
+
+        setSelectedRiderId(() => {
+            if (activeRiders.some((rider) => rider.id === slot.riderId)) {
+                return slot.riderId;
+            }
+            return activeRiders[0]?.id || "";
+        });
+
+        setRiderModal({ open: true, slot });
+    };
+
+    const handleSaveRider = async () => {
+        if (!riderModal.slot) return;
+        if (!selectedRiderId) return alert("Please choose a rider.");
+
+        const selectedRider = activeRiders.find(
+            (rider) => rider.id === selectedRiderId
+        );
+        if (!selectedRider) {
+            return alert(
+                "Selected rider is no longer active. Please refresh and select again."
+            );
+        }
+
+        try {
+            setSavingRider(true);
+            await updateSlotRider(riderModal.slot.id, {
+                id: selectedRider.id,
+                name: selectedRider.name,
+                phone: selectedRider.phone,
+            });
+            setRiderModal({ open: false, slot: null });
+        } catch (error) {
+            console.error("Error updating rider:", error);
+            alert("Failed to update rider.");
+        } finally {
+            setSavingRider(false);
         }
     };
 
@@ -130,6 +194,16 @@ export default function AdminSchedule() {
                 </Link>
             </div>
 
+            <div className="rounded-xl border border-amber-200 bg-amber-50/60 px-3 py-2">
+                <p className="text-xs text-stone-600">
+                    <strong>Note:</strong>
+                      <ul className="list-disc ml-4">
+                        <li>Rider can only be edited before the delivery time begins.</li>
+                        <li>Trips can only be deleted when no orders have been placed.</li>
+                    </ul>
+                </p>
+            </div>
+
             {/* Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {slots.map((slot) => {
@@ -142,6 +216,7 @@ export default function AdminSchedule() {
                     const timeStr = isPickup 
                         ? `${formatTime(slot.openTime)} - ${formatTime(slot.cutoffTime)}` 
                         : formatTime(slot.deliveryTime);
+                    const canEditRider = canEditTripRider(slot);
 
                     return (
                         <div key={slot.id} className={`bg-white p-5 rounded-3xl border shadow-sm relative group transition-all hover:shadow-md flex flex-col ${status.label === 'ENDED' ? 'border-stone-100 opacity-80' : 'border-stone-200'}`}>
@@ -170,6 +245,15 @@ export default function AdminSchedule() {
                                     <span className="mx-2 text-stone-300">|</span> 
                                     Close: <span className="text-stone-800">{formatTime(slot.cutoffTime)}</span>
                                 </p>
+
+                                {!isPickup && (
+                                    <p className="text-xs text-stone-500 mt-1.5 font-medium">
+                                        Rider:{" "}
+                                        <span className="text-stone-800 font-bold">
+                                            {slot.riderName || "Unassigned"}
+                                        </span>
+                                    </p>
+                                )}
                             </div>
 
                             {/* Counter */}
@@ -192,14 +276,48 @@ export default function AdminSchedule() {
                                 <Link to={`/admin/runner/${slot.id}`} 
                                 state={{ previousViewMode: viewMode }}
                                 className="flex-1 py-3 bg-stone-900 text-white rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-black transition-colors">
-                                    {status.label === 'ENDED' ? 'View History' : (isPickup ? 'Barista View' : 'Runner View')} 
+                                    {status.label === 'ENDED' ? 'View History' : 'View Order'} 
                                     <ArrowRight size={16} />
                                 </Link>
-                                {slot.cupsCount === 0 && (
-                                    <button onClick={() => handleDelete(slot)} className="p-3 bg-red-50 text-red-500 rounded-xl hover:bg-red-100 transition-colors">
-                                        <Trash2 size={20} />
+
+                                {!isPickup && (
+                                    <button
+                                        onClick={() => openRiderModal(slot)}
+                                        disabled={!canEditRider}
+                                        title={
+                                            canEditRider
+                                                ? "Edit rider assignment"
+                                                : "Rider assignments can only be edited before the delivery time begins."
+                                        }
+                                        className={`py-3 px-3 rounded-xl text-xs font-bold border transition-colors ${
+                                            canEditRider
+                                                ? "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
+                                                : "bg-stone-100 text-stone-400 border-stone-200 cursor-not-allowed"
+                                        }`}
+                                    >
+                                        <span className="inline-flex items-center gap-1">
+                                            <Bike size={14} />
+                                            Edit Rider
+                                        </span>
                                     </button>
                                 )}
+
+                                <button
+                                    onClick={() => handleDelete(slot)}
+                                    disabled={slot.cupsCount > 0}
+                                    title={
+                                        slot.cupsCount > 0
+                                            ? "Trips with existing orders cannot be deleted."
+                                            : "Delete trip"
+                                    }
+                                    className={`p-3 rounded-xl transition-colors ${
+                                        slot.cupsCount > 0
+                                            ? "bg-stone-100 text-stone-400 cursor-not-allowed"
+                                            : "bg-red-50 text-red-500 hover:bg-red-100"
+                                    }`}
+                                >
+                                    <Trash2 size={20} />
+                                </button>
                             </div>
                         </div>
                     );
@@ -212,6 +330,58 @@ export default function AdminSchedule() {
                     </div>
                 )}
             </div>
+
+            {riderModal.open && (
+                <div
+                    className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
+                    onClick={() => setRiderModal({ open: false, slot: null })}
+                >
+                    <div
+                        className="bg-white w-full max-w-md rounded-2xl p-6 space-y-4"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div>
+                            <h3 className="text-lg font-bold text-stone-800">Edit Rider</h3>
+                            <p className="text-sm text-stone-500">
+                                Trip: {formatTime(riderModal.slot?.deliveryTime)}
+                            </p>
+                        </div>
+
+                        <select
+                            value={selectedRiderId}
+                            onChange={(e) => setSelectedRiderId(e.target.value)}
+                            className="w-full p-3 bg-stone-100 rounded-xl border-none focus:ring-2 focus:ring-primary/20 appearance-none"
+                        >
+                            {activeRiders.length === 0 ? (
+                                <option value="">No active riders found</option>
+                            ) : (
+                                activeRiders.map((rider) => (
+                                    <option key={rider.id} value={rider.id}>
+                                        {rider.name} ({rider.phone})
+                                    </option>
+                                ))
+                            )}
+                        </select>
+
+                        <div className="flex justify-end gap-2">
+                            <button
+                                onClick={() => setRiderModal({ open: false, slot: null })}
+                                className="px-4 py-2 rounded-lg text-stone-500 hover:bg-stone-100"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleSaveRider}
+                                disabled={savingRider || activeRiders.length === 0}
+                                className="px-4 py-2 bg-primary text-white rounded-lg font-bold flex items-center gap-2 disabled:opacity-60"
+                            >
+                                {savingRider && <Loader2 size={16} className="animate-spin" />}
+                                {savingRider ? "Saving..." : "Save Rider"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

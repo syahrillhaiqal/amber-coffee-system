@@ -15,6 +15,7 @@ import RunnerBoard from "./pages/admin/RunnerBoard";
 import RequireAuth from "./components/RequireAuth";
 import AdminCreateTrip from "./pages/admin/AdminCreateTrip";
 import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminRider from "./pages/admin/AdminRider";
 import PaymentStatusPage from "./pages/student/PaymentStatusPage";
 import AnalyticsTracker from "./AnalyticsTracker";
 import { loadCurrentCart, saveCurrentCart, clearCurrentCart } from "./lib/storage";
@@ -114,6 +115,7 @@ function App() {
                             <Route path="schedule" element={<AdminSchedule />} />
                             <Route path="schedule/new" element={<AdminCreateTrip />} />
                             <Route path="menu" element={<AdminMenu />} />
+                            <Route path="rider" element={<AdminRider />} />
                         </Route>
                         <Route path="/admin/runner/:slotId" element={<RunnerBoard />} />
                     </Route>

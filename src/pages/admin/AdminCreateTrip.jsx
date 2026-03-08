@@ -4,6 +4,7 @@ import { ArrowLeft, CheckSquare, Square, Loader2, Filter, ImageIcon } from "luci
 import { collection, getDocs, addDoc } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 import { getTodayString, combineDateTime } from "../../lib/date";
+import { subscribeToActiveRiders } from "../../services/riderService";
 
 const CATEGORIES = ["Coffee", "Matcha", "Chocolate", "Refresher", "Pastry", "Food"];
 const TRIP_TYPES = ["delivery", "pickup"];
@@ -21,6 +22,8 @@ export default function AdminCreateTrip() {
     const [menuItems, setMenuItems] = useState([]);
     const [selectedMenuIds, setSelectedMenuIds] = useState([]);
     const [tripType, setTripType] = useState("delivery");
+    const [activeRiders, setActiveRiders] = useState([]);
+    const [selectedRiderId, setSelectedRiderId] = useState("");
 
     const handleSelectAll = () => setSelectedMenuIds(menuItems.map(i => i.id));
     const handleUnselectAll = () => setSelectedMenuIds([]);
@@ -50,6 +53,7 @@ export default function AdminCreateTrip() {
         if (!TRIP_TYPES.includes(tripType)) return alert("Please choose a valid trip type.");
         if (!tripDate || !openTime || !closeTime) return alert("Please fill in all required date and time fields.");
         if (tripType === "delivery" && !deliverTime) return alert("Please set a delivery time.");
+        if (tripType === "delivery" && !selectedRiderId) return alert("Please select an active rider.");
         if (selectedMenuIds.length === 0) return alert("Please select at least one menu item.");
 
         // 1. DATE VALIDATION
@@ -71,6 +75,15 @@ export default function AdminCreateTrip() {
             return alert("Capacity must be greater than 0.");
         }
 
+        const selectedRider =
+            tripType === "delivery"
+                ? activeRiders.find((rider) => rider.id === selectedRiderId)
+                : null;
+
+        if (tripType === "delivery" && !selectedRider) {
+            return alert("Selected rider is no longer active. Please choose again.");
+        }
+
         setLoading(true);
         try {
             const payload = {
@@ -81,7 +94,10 @@ export default function AdminCreateTrip() {
                 deliveryTime: tripType === "delivery" ? combineDateTime(tripDate, deliverTime) : null,
                 maxCapacity: tripType === "delivery" ? parseInt(capacity) : null,
                 currentBookings: 0,
-                selectedMenuIds: selectedMenuIds
+                selectedMenuIds: selectedMenuIds,
+                riderId: tripType === "delivery" ? selectedRider.id : "",
+                riderName: tripType === "delivery" ? selectedRider.name : "",
+                riderPhone: tripType === "delivery" ? selectedRider.phone : "",
             };
             await addDoc(collection(db, "delivery_slots"), payload);
             navigate("/admin/schedule");
@@ -100,6 +116,18 @@ export default function AdminCreateTrip() {
             setMenuItems(items);
         };
         fetchMenu();
+
+        const unsubRiders = subscribeToActiveRiders((riders) => {
+            setActiveRiders(riders);
+            setSelectedRiderId((prev) => {
+                if (riders.some((rider) => rider.id === prev)) return prev;
+                return riders[0]?.id || "";
+            });
+        });
+
+        return () => {
+            if (typeof unsubRiders === "function") unsubRiders();
+        };
     }, []);
 
     return (
@@ -209,15 +237,42 @@ export default function AdminCreateTrip() {
                                 />
                             </div>
                         )}
+
+                        {tripType === "delivery" && (
+                            <div className="pt-4 border-t border-gray-100">
+                                <h2 className="font-bold text-gray-800 flex items-center gap-2 mb-4">
+                                    <span className="bg-stone-900 text-white w-6 h-6 rounded flex items-center justify-center text-xs">4</span> Rider
+                                </h2>
+                                <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Assign Rider</label>
+                                <select
+                                    value={selectedRiderId}
+                                    onChange={(e) => setSelectedRiderId(e.target.value)}
+                                    className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 appearance-none"
+                                >
+                                    {activeRiders.length === 0 ? (
+                                        <option value="">No active riders found</option>
+                                    ) : (
+                                        activeRiders.map((rider) => (
+                                            <option key={rider.id} value={rider.id}>
+                                                {rider.name} ({rider.phone})
+                                            </option>
+                                        ))
+                                    )}
+                                </select>
+                                <p className="text-xs text-gray-400 mt-1">
+                                    Only active riders are listed.
+                                </p>
+                            </div>
+                        )}
                     </div>
                 </div>
 
                 {/* RIGHT: MENU SELECTOR */}
-                <div className="lg:col-span-2 bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col h-[700px]">
+                <div className="lg:col-span-2 bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col h-175">
                     <div className="mb-4 flex justify-between items-end border-b border-gray-100 pb-4">
                         <div>
                             <h2 className="font-bold text-gray-800 flex items-center gap-2 mb-1">
-                                <span className="bg-stone-900 text-white w-6 h-6 rounded flex items-center justify-center text-xs">{tripType === "pickup" ? "3" : "4"}</span> Select Menu
+                                <span className="bg-stone-900 text-white w-6 h-6 rounded flex items-center justify-center text-xs">{tripType === "pickup" ? "3" : "5"}</span> Select Menu
                             </h2>
                             <p className="text-xs text-gray-400">Choose what items are available for this trip.</p>
                         </div>

@@ -32,18 +32,17 @@ export default function AdminDashboard() {
             let total = 0;
 
             orders.forEach(data => {
-                if (data.paymentStatus === 'PAID') {
-                    const orderDate = data.createdAt?.split('T')[0];
-                    
-                    if (orderDate === todayStr) {
-                        revenue += data.totalPrice || 0;
-                        total++;
-                    }
+                if (data.paymentStatus !== 'PAID') return;
 
-                    const isFinished = ["DELIVERED", "COMPLETED", "CANCELLED"].includes(data.status);
-                    if (!isFinished) {
-                        active++;
-                    }
+                const orderDate = data.createdAt?.split('T')[0];
+                if (orderDate !== todayStr) return;
+
+                revenue += data.totalPrice || 0;
+                total++;
+
+                const isFinished = ["DELIVERED", "COMPLETED", "CANCELLED"].includes(data.status);
+                if (!isFinished) {
+                    active++;
                 }
             });
 
@@ -91,7 +90,7 @@ export default function AdminDashboard() {
                         value={stats.activeOrders} 
                         icon={ShoppingBag} 
                         color="bg-orange-500" 
-                        sub="Paid & Pending Delivery"
+                        sub="Today's paid orders still in progress"
                     />
                     <StatCard 
                         title="Trips Today" 

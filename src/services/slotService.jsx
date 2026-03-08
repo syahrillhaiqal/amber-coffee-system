@@ -1,4 +1,4 @@
-import { collection, getDocs, getDoc, doc, query, where, onSnapshot, addDoc, deleteDoc } from "firebase/firestore";
+import { collection, getDocs, getDoc, doc, query, where, onSnapshot, addDoc, deleteDoc, updateDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 
 // Subscribe to delivery slots by date (real-time)
@@ -116,6 +116,20 @@ export const deleteSlot = async (slotId) => {
         await deleteDoc(doc(db, "delivery_slots", slotId));
     } catch (error) {
         console.error("Error deleting slot:", error);
+        throw error;
+    }
+};
+
+export const updateSlotRider = async (slotId, rider) => {
+    try {
+        await updateDoc(doc(db, "delivery_slots", slotId), {
+            riderId: rider?.id || "",
+            riderName: rider?.name || "",
+            riderPhone: rider?.phone || "",
+            updatedAt: new Date().toISOString(),
+        });
+    } catch (error) {
+        console.error("Error updating slot rider:", error);
         throw error;
     }
 };
