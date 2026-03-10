@@ -8,6 +8,7 @@ import { getSlotById } from "../../services/slotService";
 import { logEvent } from "firebase/analytics";
 import { analytics } from "../../lib/firebase";
 import { parseTimeToMinutes, buildTimeOptions, getCurrentTimeMinutes, combineDateTime, formatTime } from "../../lib/date";
+import DeliveryMap from "../../components/DeliveryMap";
 
 export default function CheckoutPage({ clearCart }) { 
 
@@ -31,6 +32,7 @@ export default function CheckoutPage({ clearCart }) {
 
     const [loading, setLoading] = useState(false);
     const [showUpsellModal, setShowUpsellModal] = useState(false);
+    const [nrLocation, setNrLocation] = useState(null);
     const [formData, setFormData] = useState({
         name: "",
         phone: "",
@@ -71,6 +73,21 @@ export default function CheckoutPage({ clearCart }) {
 
     const isValidEmail = (email) => {
         return /\S+@\S+\.\S+/.test(email); 
+    };
+
+    const buildMapsUrl = (address, locationData) => {
+        const lat = Number(locationData?.lat);
+        const lng = Number(locationData?.lng);
+
+        if (Number.isFinite(lat) && Number.isFinite(lng)) {
+            return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+        }
+
+        if (address) {
+            return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+        }
+
+        return "";
     };
 
     const generateOrderId = () => {
@@ -191,7 +208,18 @@ export default function CheckoutPage({ clearCart }) {
                 orderType: isPickup ? "pickup" : "delivery",
                 pickupPoint: isPickup ? "Pickup Counter" : formData.pickupPoint,
                 pickupTime: isPickup ? pickupTimeForDb : "",
-                address: isPickup ? "" : (formData.address || ""), 
+                address: isPickup ? "" : (formData.address || ""),
+                deliveryCoordinates:
+                    !isPickup && formData.pickupPoint === "NR" && nrLocation
+                        ? {
+                              lat: Number(nrLocation.lat),
+                              lng: Number(nrLocation.lng),
+                          }
+                        : null,
+                mapsUrl:
+                    !isPickup && formData.pickupPoint === "NR"
+                        ? buildMapsUrl(formData.address, nrLocation)
+                        : "",
                 items: cart,
                 
                 subTotal: subTotal || 0,
@@ -354,13 +382,14 @@ export default function CheckoutPage({ clearCart }) {
                         </>
                     )}
                     {!isPickup && formData.pickupPoint === "NR" && (
-                        <div className="animate-fade-in">
-                            <textarea 
-                                placeholder="Full Address (House No, Street...)"
-                                className="w-full p-3 bg-orange-50 rounded-xl border border-orange-100 focus:ring-2 focus:ring-orange-200 transition-all text-sm"
-                                rows="2"
-                                value={formData.address}
-                                onChange={e => setFormData({...formData, address: e.target.value})}
+                        <div className="animate-fade-in space-y-3">
+                            <DeliveryMap
+                                address={formData.address}
+                                selectedLocation={nrLocation}
+                                onLocationChange={(locationData) => setNrLocation(locationData)}
+                                onAddressChange={(nextAddress) =>
+                                    setFormData((prev) => ({ ...prev, address: nextAddress }))
+                                }
                             />
                             <p className="text-[10px] text-orange-600 mt-1 pl-1">
                                 *NR Delivery requires min. 5 cups for free delivery.

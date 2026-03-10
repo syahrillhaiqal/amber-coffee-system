@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, Link, useLocation, useNavigate } from "react-router-dom";
-import { ArrowLeft, CheckCircle, Truck, RotateCcw, Trash2, Clock, MapPin, Eye, X, Package, ClipboardList, PenTool, Coffee, ChevronDown, ChevronUp } from "lucide-react";
+import { ArrowLeft, CheckCircle, Truck, RotateCcw, Trash2, Clock, MapPin, Eye, X, Package, ClipboardList, PenTool, Coffee, ChevronDown, ChevronUp, Navigation } from "lucide-react";
 import { subscribeToOrdersBySlot, updateOrderStatus, deleteOrder, batchUpdateOrderStatuses } from "../../services/orderService";
 import { getSlotById } from "../../services/slotService";
 import { formatDisplayDateShort, formatTime, getPickupTimeMinutes } from "../../lib/date";
@@ -38,6 +38,25 @@ export default function RunnerBoard() {
                 console.error("Error deleting order:", error);
             }
         }
+    };
+
+    const buildOrderMapsUrl = (order) => {
+        const lat = Number(order?.deliveryCoordinates?.lat);
+        const lng = Number(order?.deliveryCoordinates?.lng);
+
+        if (Number.isFinite(lat) && Number.isFinite(lng)) {
+            return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+        }
+
+        if (order?.mapsUrl) {
+            return order.mapsUrl;
+        }
+
+        if (order?.address) {
+            return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.address)}`;
+        }
+
+        return "";
     };
 
     const handleBack = () => {
@@ -88,6 +107,11 @@ export default function RunnerBoard() {
     const completedList = pickupSortedOrders.filter((o) => o.status === "COMPLETED");
     const currentTab = activeTab;
     const outList = isPickupBoard ? completedList : [...deliveryList, ...completedList];
+    const isNrDeliveryOrder =
+        selectedOrder &&
+        selectedOrder.orderType !== "pickup" &&
+        selectedOrder.pickupPoint === "NR";
+    const selectedOrderMapsUrl = isNrDeliveryOrder ? buildOrderMapsUrl(selectedOrder) : "";
 
     useEffect(() => {
         const fetchSlotInfo = async () => {
@@ -653,6 +677,17 @@ export default function RunnerBoard() {
 
                         {/* Footer Action */}
                         <div className="p-4 bg-white border-t border-stone-100 shrink-0">
+                            {isNrDeliveryOrder && selectedOrderMapsUrl && (
+                                <a
+                                    href={selectedOrderMapsUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="w-full mb-2 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <Navigation size={16} />
+                                    View In Maps
+                                </a>
+                            )}
                             <button
                                 onClick={() => {
                                     deleteOrderHandler(selectedOrder.id);
