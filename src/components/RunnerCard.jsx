@@ -1,7 +1,10 @@
 import React from 'react'
-import { MapPin, RotateCcw, Trash2 } from "lucide-react";
+import { MapPin, RotateCcw, Trash2, Clock } from "lucide-react";
+import { formatTime } from '../lib/date';
 
 export default function RunnerCard({order, actionBtn, secondaryBtn, accentColor, isCompleted, setSelectedOrder}) {
+
+    const isPickupOrder = (order?.orderType || "delivery") === "pickup";
 
     return (
         <div
@@ -10,8 +13,23 @@ export default function RunnerCard({order, actionBtn, secondaryBtn, accentColor,
             }`}
             style={{ borderLeftColor: accentColor }}
         >
+            {isPickupOrder && (
+                <div
+                    className="px-3 pt-2 bg-stone-50"
+                    onClick={() => setSelectedOrder(order)}
+                >
+                    <p className="text-[11px] font-black text-stone-700 uppercase tracking-wide flex items-center gap-1">
+                        <Clock size={12} />
+                        Pickup At: 
+                        <span className="text-sm">
+                            {formatTime(order?.pickupTime)}
+                        </span>
+                    </p>
+                </div>
+            )}
+
             <div
-                className="p-3 bg-stone-50 border-b border-stone-100 flex justify-between items-center"
+                className="px-3 pt-2 bg-stone-50 border-b border-stone-100 flex justify-between items-center"
                 onClick={() => setSelectedOrder(order)}
             >
                 <div className="flex items-center gap-2">
@@ -23,10 +41,7 @@ export default function RunnerCard({order, actionBtn, secondaryBtn, accentColor,
                     </span>
                 </div>
                 <div className="text-xs font-bold text-stone-400">
-                    {new Date(order.createdAt).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                    })}
+                    {formatTime(order.createdAt)}
                 </div>
             </div>
             <div
@@ -53,15 +68,17 @@ export default function RunnerCard({order, actionBtn, secondaryBtn, accentColor,
                                         </span>
 
                                         {/* --- NEW: PROTECTION BADGE --- */}
-                                        <span
-                                            className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase border ${
-                                                item.protection === "premium"
-                                                    ? "bg-purple-50 text-purple-700 border-purple-200"
-                                                    : "bg-blue-50 text-blue-700 border-blue-200"
-                                            }`}
-                                        >
-                                            {item.protection || "Basic"}
-                                        </span>
+                                        {!isPickupOrder && item.protection && (
+                                            <span
+                                                className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase border ${
+                                                    item.protection === "premium"
+                                                        ? "bg-purple-50 text-purple-700 border-purple-200"
+                                                        : "bg-blue-50 text-blue-700 border-blue-200"
+                                                }`}
+                                            >
+                                                {item.protection}
+                                            </span>
+                                        )}
                                     </div>
 
                                     <div className="flex gap-1 flex-wrap mt-0.5">

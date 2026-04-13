@@ -3,6 +3,7 @@ import { useLocation, Link } from "react-router-dom";
 import { Download, MessageCircle } from "lucide-react";
 import { domToPng } from "modern-screenshot";
 import logo from "../../assets/amber-coffee.png";
+import { formatTime } from "../../lib/date";
 
 export default function ReceiptPage() {
 
@@ -34,7 +35,10 @@ export default function ReceiptPage() {
     const protectFee = data.totals?.protectionFee ?? 0;
     const grandTotal = data.totals?.finalTotal ?? 0;
     const deliveryFee = data.totals?.deliveryFee ?? 0;
+    const orderType = data.orderType || "delivery";
+    const isPickup = orderType === "pickup";
     const pickupPoint = data.customer?.pickupPoint ?? "Unknown";
+    const pickupTime = data.customer?.pickupTime ?? "";
     const address = data.customer?.address ?? "";
     const deliveryTime = data.tripTime ?? "Unknown";
 
@@ -71,7 +75,7 @@ export default function ReceiptPage() {
                         <p className="text-xs font-bold text-stone-600">
                             {data.timestamp ? data.timestamp.split(",")[1] : new Date().toLocaleTimeString()}
                         </p>
-                        {deliveryTime && (
+                        {!isPickup && deliveryTime && (
                             <p className="text-xs font-bold text-primary mt-1">
                                 Delivery At: {deliveryTime}
                             </p>
@@ -89,13 +93,15 @@ export default function ReceiptPage() {
                                     <div className="flex items-center gap-1 flex-wrap">
                                         <span className="text-stone-600 block font-bold">{item.name}</span>
                                         {/* PROTECTION BADGE */}
-                                        <span className={`text-[9px] px-1 rounded border ${
-                                            item.protection === 'premium' 
-                                            ? 'text-purple-600 border-purple-200 bg-purple-50' 
-                                            : 'text-blue-600 border-blue-200 bg-blue-50'
-                                        }`}>
-                                            {item.protection === 'premium' ? 'PREMIUM' : 'BASIC'}
-                                        </span>
+                                        {!isPickup && (
+                                            <span className={`text-[9px] px-1 rounded border ${
+                                                item.protection === 'premium' 
+                                                ? 'text-purple-600 border-purple-200 bg-purple-50' 
+                                                : 'text-blue-600 border-blue-200 bg-blue-50'
+                                            }`}>
+                                                {item.protection === 'premium' ? 'PREMIUM' : 'BASIC'}
+                                            </span>
+                                        )}
                                     </div>
                                     
                                     <div className="flex flex-wrap gap-1 mt-0.5">
@@ -117,16 +123,20 @@ export default function ReceiptPage() {
                         <span>Items Subtotal</span>
                         <span>RM {itemsTotal.toFixed(2)}</span>
                     </div>
-                    <div className="flex justify-between text-xs text-stone-500">
-                        <span>Protection Fee</span>
-                        <span>RM {protectFee.toFixed(2)}</span>
-                    </div>
+                    {!isPickup && (
+                        <div className="flex justify-between text-xs text-stone-500">
+                            <span>Protection Fee</span>
+                            <span>RM {protectFee.toFixed(2)}</span>
+                        </div>
+                    )}
                     
                     {/* DYNAMIC DELIVERY FEE */}
-                    <div className={`flex justify-between text-xs font-bold ${deliveryFee === 0 ? 'text-green-600' : 'text-stone-500'}`}>
-                        <span>Delivery Fee</span>
-                        <span>{deliveryFee === 0 ? "FREE" : `RM ${deliveryFee.toFixed(2)}`}</span>
-                    </div>
+                    {!isPickup && (
+                        <div className={`flex justify-between text-xs font-bold ${deliveryFee === 0 ? 'text-green-600' : 'text-stone-500'}`}>
+                            <span>Delivery Fee</span>
+                            <span>{deliveryFee === 0 ? "FREE" : `RM ${deliveryFee.toFixed(2)}`}</span>
+                        </div>
+                    )}
 
                     <div className="flex justify-between text-xl font-black text-stone-900 pt-2 border-t border-dashed border-stone-200 mt-2">
                         <span>Total Paid</span>
@@ -136,11 +146,20 @@ export default function ReceiptPage() {
                     </div>
                 </div>
 
-                {/* Pickup & Address */}
+                {/* Pickup / Delivery Info */}
                 <div className="bg-primary/5 p-4 rounded-xl text-center border border-primary/10">
-                    <p className="text-xs text-primary font-bold uppercase mb-1">Pickup Location</p>
-                    <p className="text-lg font-bold text-stone-800">{pickupPoint}</p>
-                    {pickupPoint === "NR" && address && (
+                    {isPickup ? (
+                        <>
+                            <p className="text-xs text-primary font-bold uppercase mb-1">Pickup Time</p>
+                            <p className="text-lg font-bold text-stone-800">{formatTime(pickupTime) || "Not selected"}</p>
+                        </>
+                    ) : (
+                        <>
+                            <p className="text-xs text-primary font-bold uppercase mb-1">Pickup Location</p>
+                            <p className="text-lg font-bold text-stone-800">{pickupPoint}</p>
+                        </>
+                    )}
+                    {!isPickup && pickupPoint === "NR" && address && (
                         <div className="mt-2 pt-2 border-t border-primary/10">
                             <p className="text-[10px] text-stone-400 uppercase font-bold mb-1">Delivery Address</p>
                             <p className="text-xs text-stone-600 italic leading-relaxed">{address}</p>
@@ -149,18 +168,20 @@ export default function ReceiptPage() {
                 </div>
 
                 {/* AMBER CONTACT */}
-                <div className="mt-4 pt-4 border-t border-stone-300 text-center">
-                    <p className="text-[12px] text-stone-400 font-medium mb-1">Need to contact the runner?</p>
-                    <a 
-                        href="https://wa.me/601164971911" 
-                        target="_blank" 
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-2 text-xs font-bold text-stone-600 hover:text-green-600 transition-colors bg-stone-100 px-4 py-2 rounded-full"
-                    >
-                        <MessageCircle size={14} className="text-green-500"/>
-                        +60 11-6497 1911 (Amber Runner)
-                    </a>
-                </div>
+                {!isPickup && (
+                    <div className="mt-4 pt-4 border-t border-stone-300 text-center">
+                        <p className="text-[12px] text-stone-400 font-medium mb-1">Need to contact the runner?</p>
+                        <a 
+                            href="https://wa.me/601164971911" 
+                            target="_blank" 
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-2 text-xs font-bold text-stone-600 hover:text-green-600 transition-colors bg-stone-100 px-4 py-2 rounded-full"
+                        >
+                            <MessageCircle size={14} className="text-green-500"/>
+                            +60 11-6497 1911 (Amber Runner)
+                        </a>
+                    </div>
+                )}
 
                 <div className="mt-2 bg-primary/10 text-primary py-3 px-4 rounded-xl border border-primary/20">
                     <p className="text-sm font-bold flex flex-col items-center justify-center gap-1 text-center leading-snug">

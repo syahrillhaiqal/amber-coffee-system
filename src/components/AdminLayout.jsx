@@ -1,5 +1,5 @@
 import { Link, useLocation, Outlet, useNavigate } from "react-router-dom";
-import { Coffee, Calendar, LogOut, LayoutDashboard } from "lucide-react";
+import { Coffee, Calendar, LogOut, LayoutDashboard, Bike } from "lucide-react";
 import { signOut } from "firebase/auth";
 import { auth } from "../lib/firebase";
 import logo from "../assets/amber-coffee-logo-only.png";
@@ -58,6 +58,10 @@ export default function AdminLayout() {
             <Link to="/admin/menu" className={getLinkClass("/admin/menu")}>
                 <Coffee size={20} />
                 <span>Menu Maintenance</span>
+            </Link>
+            <Link to="/admin/rider" className={getLinkClass("/admin/rider")}>
+                <Bike size={20} />
+                <span>Rider Maintenance</span>
             </Link>
         </>
     );
@@ -131,6 +135,12 @@ export default function AdminLayout() {
                             className={getMobileTabClass("/admin/menu")}
                         >
                             <Coffee size={16} /> Menu
+                        </Link>
+                        <Link
+                            to="/admin/rider"
+                            className={getMobileTabClass("/admin/rider")}
+                        >
+                            <Bike size={16} /> Rider
                         </Link>
                     </div>
                 </div>

@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { useParams, Link, useLocation, useNavigate } from "react-router-dom";
-import { ArrowLeft, CheckCircle, Truck, RotateCcw, Trash2, Clock, MapPin, Eye, X, Package, ClipboardList, PenTool, Coffee, ChevronDown, ChevronUp } from "lucide-react";
+import { ArrowLeft, CheckCircle, Truck, RotateCcw, Trash2, Clock, MapPin, Eye, X, Package, ClipboardList, PenTool, Coffee, ChevronDown, ChevronUp, Navigation } from "lucide-react";
 import { subscribeToOrdersBySlot, updateOrderStatus, deleteOrder, batchUpdateOrderStatuses } from "../../services/orderService";
 import { getSlotById } from "../../services/slotService";
+import { formatDisplayDateShort, formatTime, getPickupTimeMinutes } from "../../lib/date";
 import RunnerCard from "../../components/RunnerCard";
 import LocationBatchCard from "../../components/LocationBatchCard";
 
@@ -18,6 +19,8 @@ export default function RunnerBoard() {
 
     const location = useLocation();
     const navigate = useNavigate();
+
+    const isPickupBoard = (slotInfo?.type || "delivery") === "pickup";
 
     const updateStatus = async (orderId, newStatus) => {
         try {
@@ -37,6 +40,25 @@ export default function RunnerBoard() {
         }
     };
 
+    const buildOrderMapsUrl = (order) => {
+        const lat = Number(order?.deliveryCoordinates?.lat);
+        const lng = Number(order?.deliveryCoordinates?.lng);
+
+        if (Number.isFinite(lat) && Number.isFinite(lng)) {
+            return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+        }
+
+        if (order?.mapsUrl) {
+            return order.mapsUrl;
+        }
+
+        if (order?.address) {
+            return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.address)}`;
+        }
+
+        return "";
+    };
+
     const handleBack = () => {
         navigate("/admin/schedule", {
             state: { 
@@ -54,38 +76,42 @@ export default function RunnerBoard() {
             console.error("Error confirming batch delivery:", error);
         }
     };
-
-    const formatTripTime = (isoString) => {
-        if (!isoString) return "";
-        return new Date(isoString).toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-        });
-    };    
-
-    const formatDisplayDate = (dateString) => {
-        if (!dateString) return "";
-        return new Date(dateString).toLocaleDateString('en-GB', {
-            day: '2-digit', 
-            month: 'short', 
-            year: 'numeric'
-        });
-    }
     
-    const readyGroups = orders
+    const pickupSortedOrders = isPickupBoard
+        ? [...orders].sort((a, b) => {
+              const aMinutes = getPickupTimeMinutes(a.pickupTime);
+              const bMinutes = getPickupTimeMinutes(b.pickupTime);
+
+              if (aMinutes !== null && bMinutes !== null && aMinutes !== bMinutes) {
+                  return aMinutes - bMinutes;
+              }
+
+              if (aMinutes !== null && bMinutes === null) return -1;
+              if (aMinutes === null && bMinutes !== null) return 1;
+
+              return new Date(a.createdAt) - new Date(b.createdAt);
+          })
+        : orders;
+
+    const readyGroups = pickupSortedOrders
         .filter((o) => o.status === "READY")
         .reduce((acc, order) => {
             if (!acc[order.pickupPoint]) acc[order.pickupPoint] = [];
             acc[order.pickupPoint].push(order);
             return acc;
         }, {});
-
-    const receivedList = orders.filter((o) => o.status === "RECEIVED");
-    const prepList = orders.filter((o) => o.status === "PREPARING");
-    const deliveryList = orders.filter((o) => o.status === "DELIVERY");
-    const completedList = orders.filter((o) => o.status === "COMPLETED");
-
-    const outList = [...deliveryList, ...completedList];
+    const readyList = pickupSortedOrders.filter((o) => o.status === "READY");
+    const receivedList = pickupSortedOrders.filter((o) => o.status === "RECEIVED");
+    const prepList = pickupSortedOrders.filter((o) => o.status === "PREPARING");
+    const deliveryList = pickupSortedOrders.filter((o) => o.status === "DELIVERY");
+    const completedList = pickupSortedOrders.filter((o) => o.status === "COMPLETED");
+    const currentTab = activeTab;
+    const outList = isPickupBoard ? completedList : [...deliveryList, ...completedList];
+    const isNrDeliveryOrder =
+        selectedOrder &&
+        selectedOrder.orderType !== "pickup" &&
+        selectedOrder.pickupPoint === "NR";
+    const selectedOrderMapsUrl = isNrDeliveryOrder ? buildOrderMapsUrl(selectedOrder) : "";
 
     useEffect(() => {
         const fetchSlotInfo = async () => {
@@ -121,8 +147,6 @@ export default function RunnerBoard() {
         return () => unsubscribe();
     }, [slotId]);
 
-    
-
     return (
         <div className="h-screen flex flex-col bg-stone-900 text-stone-100 font-sans overflow-hidden">
             {/* Header */}
@@ -138,13 +162,15 @@ export default function RunnerBoard() {
                         {slotInfo ? (
                             <>
                             <h1 className="text-lg font-black text-white leading-tight">
-                                {formatDisplayDate(slotInfo.dateString)}
+                                {formatDisplayDateShort(slotInfo.dateString)}
                             </h1>
                             <p className="text-xs text-stone-400 font-bold uppercase tracking-wider flex items-center gap-1">
                                 <Clock size={12} className="text-white" />
                                 <span className="text-white">
                                     Trip{" "}
-                                    {formatTripTime(slotInfo.deliveryTime)}
+                                    {isPickupBoard
+                                        ? `${formatTime(slotInfo.openTime)} - ${formatTime(slotInfo.cutoffTime)}`
+                                        : formatTime(slotInfo.deliveryTime)}
                                 </span>
                             </p>
                             </>
@@ -167,10 +193,10 @@ export default function RunnerBoard() {
                     let count = 0;
                     if (tab === "WRITE") count = receivedList.length;
                     if (tab === "PREP") count = prepList.length;
-                    if (tab === "READY") count = Object.values(readyGroups).flat().length;
-                    if (tab === "OUT") count = deliveryList.length; // Count only active delivery, not completed
+                    if (tab === "READY") count = isPickupBoard ? readyList.length : Object.values(readyGroups).flat().length;
+                    if (tab === "OUT") count = isPickupBoard ? completedList.length : deliveryList.length;
 
-                    const isActive = activeTab === tab;
+                    const isActive = currentTab === tab;
                     return (
                         <button
                             key={tab}
@@ -181,7 +207,7 @@ export default function RunnerBoard() {
                                     : "border-transparent text-stone-500 hover:text-stone-300"
                             }`}
                         >
-                            {tab}{" "}
+                            {isPickupBoard && tab === "OUT" ? "COMPLETED" : tab}{" "}
                             <span className="ml-1 bg-stone-900 text-stone-400 px-1.5 py-0.5 rounded-full text-[10px] border border-stone-700">
                                 {count}
                             </span>
@@ -201,7 +227,7 @@ export default function RunnerBoard() {
                         {/* 1. WRITE CUP */}
                         <div
                             className={`flex-1 flex flex-col bg-stone-800 rounded-xl overflow-hidden border border-stone-700 md:flex ${
-                                activeTab === "WRITE" ? "flex" : "hidden"
+                                currentTab === "WRITE" ? "flex" : "hidden"
                             }`}
                         >
                             <div className="bg-rose-600 p-3 text-white font-bold text-center uppercase text-sm shadow-sm flex justify-between items-center">
@@ -259,12 +285,12 @@ export default function RunnerBoard() {
                         {/* 2. WITH BARISTA */}
                         <div
                             className={`flex-1 flex flex-col bg-stone-800 rounded-xl overflow-hidden border border-stone-700 md:flex ${
-                                activeTab === "PREP" ? "flex" : "hidden"
+                                currentTab === "PREP" ? "flex" : "hidden"
                             }`}
                         >
                             <div className="bg-orange-500 p-3 text-white font-bold text-center uppercase text-sm shadow-sm flex justify-between items-center">
                                 <span className="flex items-center gap-2">
-                                    <Coffee size={16} /> With Barista
+                                    <Coffee size={16} /> Prep
                                 </span>
                                 <span className="bg-orange-700 px-2 rounded-full text-xs">
                                     {prepList.length}
@@ -299,7 +325,7 @@ export default function RunnerBoard() {
                                                 }
                                                 className="btn-main bg-orange-500 text-white hover:bg-orange-600"
                                             >
-                                                Cup Received{" "}
+                                                {isPickupBoard ? "Ready To Pickup " : "Cup Received "}
                                                 <CheckCircle size={16} />
                                             </button>
                                         }
@@ -308,7 +334,7 @@ export default function RunnerBoard() {
                                 ))}
                                 {prepList.length === 0 && (
                                     <div className="text-center p-10 text-stone-600 text-sm">
-                                        Waiting for runner...
+                                        No orders in prep
                                     </div>
                                 )}
                             </div>
@@ -317,30 +343,59 @@ export default function RunnerBoard() {
                         {/* 3. READY TO DELIVER */}
                         <div
                             className={`flex-1 flex flex-col bg-stone-800 rounded-xl overflow-hidden border border-stone-700 md:flex ${
-                                activeTab === "READY" ? "flex" : "hidden"
+                                currentTab === "READY" ? "flex" : "hidden"
                             }`}
                         >
                             <div className="bg-blue-600 p-3 text-white font-bold text-center uppercase text-sm shadow-sm flex justify-between items-center">
                                 <span className="flex items-center gap-2">
-                                    <Package size={16} /> Ready to Go
+                                    <Package size={16} /> Ready
                                 </span>
                                 <span className="bg-blue-800 px-2 rounded-full text-xs">
-                                    {Object.values(readyGroups).flat().length}
+                                    {isPickupBoard ? readyList.length : Object.values(readyGroups).flat().length}
                                 </span>
                             </div>
                             <div className="flex-1 overflow-y-auto p-2 space-y-2 bg-stone-800/50">
-                                {Object.entries(readyGroups).map(
-                                    ([location, groupOrders]) => (
-                                        <LocationBatchCard
-                                            key={location}
-                                            location={location}
-                                            groupOrders={groupOrders}
-                                            updateStatus={updateStatus}
-                                            setRunnerManifest={setRunnerManifest}
+                                {isPickupBoard
+                                    ? readyList.map((order) => (
+                                        <RunnerCard
+                                            key={order.id}
+                                            order={order}
+                                            accentColor="#2563eb"
+                                            secondaryBtn={
+                                                <button
+                                                    onClick={() =>
+                                                        updateStatus(order.id, "PREPARING")
+                                                    }
+                                                    className="btn-icon bg-stone-200 text-stone-600"
+                                                >
+                                                    <RotateCcw size={16} />
+                                                </button>
+                                            }
+                                            actionBtn={
+                                                <button
+                                                    onClick={() =>
+                                                        updateStatus(order.id, "COMPLETED")
+                                                    }
+                                                    className="btn-main bg-emerald-100 text-emerald-700 border border-emerald-200 hover:bg-emerald-200"
+                                                >
+                                                    Mark Completed <CheckCircle size={18} />
+                                                </button>
+                                            }
+                                            setSelectedOrder={setSelectedOrder}
                                         />
-                                    )
-                                )}
-                                {Object.keys(readyGroups).length === 0 && (
+                                    ))
+                                    : Object.entries(readyGroups).map(
+                                        ([location, groupOrders]) => (
+                                            <LocationBatchCard
+                                                key={location}
+                                                location={location}
+                                                groupOrders={groupOrders}
+                                                updateStatus={updateStatus}
+                                                setRunnerManifest={setRunnerManifest}
+                                            />
+                                        )
+                                    )}
+                                {((isPickupBoard && readyList.length === 0) || (!isPickupBoard && Object.keys(readyGroups).length === 0)) && (
                                     <div className="text-center p-10 text-stone-600 text-sm">
                                         No ready orders
                                     </div>
@@ -348,18 +403,23 @@ export default function RunnerBoard() {
                             </div>
                         </div>
 
-                        {/* 4. OUT FOR DELIVERY (Active + History) */}
+                        {/* 4. OUT FOR DELIVERY / COMPLETED */}
                         <div
                             className={`flex-1 flex flex-col bg-stone-800 rounded-xl overflow-hidden border border-stone-700 opacity-90 md:flex ${
-                                activeTab === "OUT" ? "flex" : "hidden"
+                                currentTab === "OUT" ? "flex" : "hidden"
                             }`}
                         >
-                            <div className="bg-emerald-600 p-3 text-white font-bold text-center uppercase text-sm shadow-sm flex justify-between items-center">
+                            <div className={`p-3 text-white font-bold text-center uppercase text-sm shadow-sm flex justify-between items-center ${
+                                isPickupBoard ? "bg-violet-600" : "bg-emerald-600"
+                            }`}>
                                 <span className="flex items-center gap-2">
-                                    <Truck size={16} /> On the Way
+                                    {isPickupBoard ? <CheckCircle size={16} /> : <Truck size={16} />}
+                                    {isPickupBoard ? "Completed" : "On the Way"}
                                 </span>
-                                <span className="bg-emerald-800 px-2 rounded-full text-xs">
-                                    {deliveryList.length}
+                                <span className={`px-2 rounded-full text-xs ${
+                                    isPickupBoard ? "bg-violet-800" : "bg-emerald-800"
+                                }`}>
+                                    {isPickupBoard ? completedList.length : deliveryList.length}
                                 </span>
                             </div>
                             <div className="flex-1 overflow-y-auto p-2 space-y-2 bg-stone-800/50">
@@ -372,17 +432,13 @@ export default function RunnerBoard() {
                                                 ? "#57534e"
                                                 : "#059669"
                                         }
-                                        isCompleted={
-                                            order.status === "COMPLETED"
-                                        }
+                                        isCompleted={order.status === "COMPLETED"}
                                         secondaryBtn={
+                                            !isPickupBoard &&
                                             order.status === "DELIVERY" && (
                                                 <button
                                                     onClick={() =>
-                                                        updateStatus(
-                                                            order.id,
-                                                            "READY"
-                                                        )
+                                                        updateStatus(order.id, "READY")
                                                     }
                                                     className="btn-icon bg-stone-200 text-stone-600"
                                                 >
@@ -398,21 +454,22 @@ export default function RunnerBoard() {
                                             ) : (
                                                 <button
                                                     onClick={() =>
-                                                        updateStatus(
-                                                            order.id,
-                                                            "COMPLETED"
-                                                        )
+                                                        updateStatus(order.id, "COMPLETED")
                                                     }
                                                     className="btn-main bg-emerald-100 text-emerald-700 border border-emerald-200 hover:bg-emerald-200"
                                                 >
-                                                    Mark Done{" "}
-                                                    <CheckCircle size={18} />
+                                                    Mark Done <CheckCircle size={18} />
                                                 </button>
                                             )
                                         }
                                         setSelectedOrder={setSelectedOrder}
                                     />
                                 ))}
+                                {outList.length === 0 && (
+                                    <div className="text-center p-10 text-stone-600 text-sm">
+                                        {isPickupBoard ? "No completed orders" : "No out-for-delivery orders"}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -421,7 +478,7 @@ export default function RunnerBoard() {
 
             {/* --- MODALS --- */}
             {/* Delivery Modal */}
-            {runnerManifest && (
+            {runnerManifest && !isPickupBoard && (
                 <div
                     className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
                     onClick={() => setRunnerManifest(null)}
@@ -501,9 +558,12 @@ export default function RunnerBoard() {
                                 <h2 className="text-xl font-bold text-stone-800">
                                     Order #{selectedOrder.orderId}
                                 </h2>
-                                <p className="text-stone-500 text-xs font-bold uppercase">
-                                    {selectedOrder.status}
-                                </p>
+                                {selectedOrder.orderType === "pickup" && (
+                                    <p className="text-stone-500 text-xs font-bold uppercase">
+                                        Pickup At: {" "}
+                                        {formatTime(selectedOrder.pickupTime)}
+                                    </p>
+                                )}
                             </div>
                             <button
                                 onClick={() => setSelectedOrder(null)}
@@ -565,17 +625,18 @@ export default function RunnerBoard() {
                                                         <span className="font-bold text-stone-800">
                                                             {item.name}
                                                         </span>
-                                                        <span
-                                                            className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase border ${
-                                                                item.protection ===
-                                                                "premium"
-                                                                    ? "bg-purple-50 text-purple-700 border-purple-200"
-                                                                    : "bg-blue-50 text-blue-700 border-blue-200"
-                                                            }`}
-                                                        >
-                                                            {item.protection ||
-                                                                "Basic"}
-                                                        </span>
+                                                        {selectedOrder.orderType !== "pickup" && item.protection && (
+                                                            <span
+                                                                className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase border ${
+                                                                    item.protection ===
+                                                                    "premium"
+                                                                        ? "bg-purple-50 text-purple-700 border-purple-200"
+                                                                        : "bg-blue-50 text-blue-700 border-blue-200"
+                                                                }`}
+                                                            >
+                                                                {item.protection}
+                                                            </span>
+                                                        )}
                                                     </div>
 
                                                     <div className="flex gap-1 flex-wrap mt-0.5">
@@ -616,6 +677,17 @@ export default function RunnerBoard() {
 
                         {/* Footer Action */}
                         <div className="p-4 bg-white border-t border-stone-100 shrink-0">
+                            {isNrDeliveryOrder && selectedOrderMapsUrl && (
+                                <a
+                                    href={selectedOrderMapsUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="w-full mb-2 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <Navigation size={16} />
+                                    View In Maps
+                                </a>
+                            )}
                             <button
                                 onClick={() => {
                                     deleteOrderHandler(selectedOrder.id);

@@ -28,9 +28,14 @@ export default function CartDrawer({ cart, close, tripInfo, removeFromCart, upda
     
     const [showFullImage, setShowFullImage] = useState(null); // stores 'basic' or 'premium'
 
-    const { subTotal, protectionFee, deliveryFee, finalTotal, totalCups } = calcTotals(cart);
+    const { subTotal, protectionFee, deliveryFee, totalCups } = calcTotals(cart);
+    const isPickup = (tripInfo?.orderType || "delivery") === "pickup";
+    const checkoutProtectionFee = isPickup ? 0 : protectionFee;
+    const checkoutDeliveryFee = isPickup ? 0 : deliveryFee;
+    const checkoutTotal = subTotal + checkoutProtectionFee + checkoutDeliveryFee;
 
     const handlePackageSelect = (item, type) => {
+        if (isPickup) return;
         
         updateCartItemProtection(item.cartId, type);
 
@@ -49,18 +54,19 @@ export default function CartDrawer({ cart, close, tripInfo, removeFromCart, upda
             cart_size: cart.length,
             total_cups: totalCups,
             subtotal: subTotal,
-            protection_fee: protectionFee,
-            delivery_fee: deliveryFee,
-            total_value: finalTotal
+            order_type: isPickup ? "pickup" : "delivery",
+            protection_fee: checkoutProtectionFee,
+            delivery_fee: checkoutDeliveryFee,
+            total_value: checkoutTotal
         });
 
         navigate('/checkout', {
             state: {
                 cart,
                 subTotal,
-                protectionFee,
-                deliveryFee,
-                total: finalTotal,
+                protectionFee: checkoutProtectionFee,
+                deliveryFee: checkoutDeliveryFee,
+                total: checkoutTotal,
                 tripInfo,
             },
         });
@@ -87,6 +93,7 @@ export default function CartDrawer({ cart, close, tripInfo, removeFromCart, upda
                 <div className="flex-1 overflow-y-auto p-4 space-y-6 overscroll-contain">
                     
                     {/* PACKAGE INFO CARD */}
+                    {!isPickup && (
                     <div className="bg-blue-50/50 rounded-2xl p-4 border border-blue-100">
                         <h3 className="text-xs font-bold text-blue-600 uppercase mb-3 flex items-center gap-1">
                             <ShieldCheck size={14}/> Protection Packages
@@ -116,6 +123,7 @@ export default function CartDrawer({ cart, close, tripInfo, removeFromCart, upda
                             </div>
                         </div>
                     </div>
+                    )}
 
                     {/* ORDER LIST */}
                     <div className="space-y-4">
@@ -145,6 +153,7 @@ export default function CartDrawer({ cart, close, tripInfo, removeFromCart, upda
                                     </div>
 
                                     {/* Per Item Protection Toggle */}
+                                    {!isPickup && (
                                     <div className="bg-gray-100 p-2 rounded-xl flex gap-2 items-center">
                                         <p className="text-[10px] font-bold text-gray-600 uppercase w-16">Package:</p>
                                         <div className="flex-1 flex gap-2">
@@ -170,6 +179,7 @@ export default function CartDrawer({ cart, close, tripInfo, removeFromCart, upda
                                             </button>
                                         </div>
                                     </div>
+                                    )}
                                 </div>
                             ))
                         )}
@@ -179,26 +189,32 @@ export default function CartDrawer({ cart, close, tripInfo, removeFromCart, upda
                 {/* Footer */}
                 {cart.length > 0 && (
                     <div className="shrink-0 border-t bg-white shadow-[0_-5px_20px_rgba(0,0,0,0.05)] pb-[calc(1rem+env(safe-area-inset-bottom))]">
-                        <div className="px-4 pt-3 pb-2 space-y-1">
+                        <div className={`px-4 ${!isPickup ? "pt-3" : ""}  pb-2 space-y-1`}>
+                            {!isPickup && (
                             <div className="flex justify-between text-xs text-gray-500">
                                 <span>Subtotal</span>
                                 <span>RM {subTotal.toFixed(2)}</span>
                             </div>
-                            <div className="flex justify-between text-xs text-blue-600 font-medium">
-                                <span>Total Protection Fees</span>
-                                <span>RM {protectionFee.toFixed(2)}</span>
-                            </div>
-                            <div className={`flex justify-between text-xs font-bold ${deliveryFee === 0 ? 'text-green-600' : 'text-orange-600'}`}>
-                                <span className="flex items-center gap-1"><Truck size={12}/> Delivery Fee</span>
-                                <span>{deliveryFee === 0 ? 'FREE' : `RM ${deliveryFee.toFixed(2)}`}</span>
-                            </div>
+                            )}
+                            {!isPickup && (
+                                <div className="flex justify-between text-xs text-blue-600 font-medium">
+                                    <span>Total Protection Fees</span>
+                                    <span>RM {protectionFee.toFixed(2)}</span>
+                                </div>
+                            )}
+                            {!isPickup && (
+                                <div className={`flex justify-between text-xs font-bold ${deliveryFee === 0 ? 'text-green-600' : 'text-orange-600'}`}>
+                                    <span className="flex items-center gap-1"><Truck size={12}/> Delivery Fee</span>
+                                    <span>{deliveryFee === 0 ? 'FREE' : `RM ${deliveryFee.toFixed(2)}`}</span>
+                                </div>
+                            )}
                         </div>
 
                         <div className="px-4 pb-2 pt-1 flex items-center gap-4">
                             <div className="flex-1">
                                 <p className="text-xs text-gray-500 mb-0.5">Total to pay</p>
                                 <p className="text-2xl font-black text-gray-900 leading-none">
-                                    RM {finalTotal.toFixed(2)}
+                                    RM {checkoutTotal.toFixed(2)}
                                 </p>
                             </div>
                             <button 
@@ -213,7 +229,7 @@ export default function CartDrawer({ cart, close, tripInfo, removeFromCart, upda
             </div>
             
             {/* --- LIGHTBOX (For full image packaging) */}
-            {showFullImage && (
+            {showFullImage && !isPickup && (
                 <div 
                     className="fixed inset-0 z-[70] bg-black/95 flex items-center justify-center p-4 animate-fade-in"
                     onClick={() => setShowFullImage(null)}

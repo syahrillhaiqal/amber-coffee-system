@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Calendar, Clock, Package, AlertCircle, Loader2 } from "lucide-react";
+import { Calendar, Clock, Package, AlertCircle, Loader2, Truck, Store } from "lucide-react";
 import { collection, onSnapshot } from "firebase/firestore";
 import { analytics, db } from "../../lib/firebase";
 import logo from "../../assets/amber-coffee-logo-only.png";
@@ -14,6 +14,7 @@ export default function TripSelection() {
 
     const [trips, setTrips] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [selectedOrderType, setSelectedOrderType] = useState("delivery");
 
     const today = getTodayString();
     const displayDate = formatDisplayDate();
@@ -25,6 +26,7 @@ export default function TripSelection() {
         logEvent(analytics, "select_trip", {
             trip_id: trip.id,
             trip_time: timeStr,
+            trip_type: trip.type || "delivery",
             remaining_capacity: remainingCups,
             is_low_stock: isLowStock
         });
@@ -33,9 +35,16 @@ export default function TripSelection() {
             tripId: trip.id, 
             name: timeStr, 
             time: timeStr, 
-            selectedMenuIds: trip.selectedMenuIds 
+            selectedMenuIds: trip.selectedMenuIds,
+            orderType: trip.type || "delivery",
+            openTime: trip.openTime || null,
+            cutoffTime: trip.cutoffTime || null
         });
     };
+
+    const displayedTrips = trips.filter(
+        (trip) => (trip.type || "delivery") === selectedOrderType
+    );
 
     useEffect(() => {
         const unsubSlots = subscribeToSlotsByDate(today, (todaysTrips) => {
@@ -49,9 +58,11 @@ export default function TripSelection() {
                         return { ...trip, filledCups };
                     });
 
-                    tripsWithCapacity.sort((a, b) =>
-                        a.deliveryTime.localeCompare(b.deliveryTime)
-                    );
+                    tripsWithCapacity.sort((a, b) => {
+                        const aTime = a.deliveryTime || a.openTime || "";
+                        const bTime = b.deliveryTime || b.openTime || "";
+                        return aTime.localeCompare(bTime);
+                    });
 
                     setTrips(tripsWithCapacity);
                     setLoading(false);
@@ -68,12 +79,39 @@ export default function TripSelection() {
         <div className="px-4 py-6 max-w-md mx-auto min-h-screen bg-stone-100">
             <div className="mb-5">
                 <h2 className="text-2xl font-bold text-gray-800">
-                    Choose Delivery Trip
+                    Choose {selectedOrderType === "pickup" ? "Pickup" : "Delivery"} Trip
                 </h2>
                 <div className="flex items-center gap-2 text-primary font-medium mt-1">
                     <Calendar size={16} />
                     <span className="text-sm">{displayDate}</span>
                 </div>
+            </div>
+            
+            <div className="mb-4 bg-white p-1 rounded-xl border border-stone-200 shadow-sm grid grid-cols-2 gap-1">
+                <button
+                    type="button"
+                    onClick={() => setSelectedOrderType("delivery")}
+                    className={`py-2 rounded-lg text-sm font-bold transition flex items-center justify-center gap-2 ${
+                        selectedOrderType === "delivery"
+                            ? "bg-stone-900 text-white"
+                            : "bg-stone-50 text-stone-600 hover:bg-stone-100"
+                    }`}
+                >
+                    <Truck size={16} />
+                    Delivery
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setSelectedOrderType("pickup")}
+                    className={`py-2 rounded-lg text-sm font-bold transition flex items-center justify-center gap-2 ${
+                        selectedOrderType === "pickup"
+                            ? "bg-primary text-white"
+                            : "bg-stone-50 text-stone-600 hover:bg-stone-100"
+                    }`}
+                >
+                    <Store size={16} />
+                    Pickup
+                </button>
             </div>
 
             <div className="space-y-3">
@@ -89,23 +127,26 @@ export default function TripSelection() {
                             <span>Loading...</span>
                         </div>
                     </div>
-                ) : trips.length === 0 ? (
+                ) : displayedTrips.length === 0 ? (
                     <div className="text-center p-8 bg-white rounded-2xl border border-dashed border-gray-300">
                         <Calendar
                             size={48}
                             className="mx-auto mb-4 text-gray-300"
                         />
                         <p className="text-gray-500 font-bold">
-                            No trips available.
+                            No {selectedOrderType} trips available.
                         </p>
                         <p className="text-sm text-gray-400 mt-1">
                             Check back later or tomorrow!
                         </p>
                     </div>
                 ) : (
-                    trips.map((trip) => {
+                    displayedTrips.map((trip) => {
                         const status = getTripStatus(trip);
-                        const timeStr = formatTime(trip.deliveryTime);
+                        const isPickup = (trip.type || "delivery") === "pickup";
+                        const timeStr = isPickup
+                            ? `${formatTime(trip.openTime)} - ${formatTime(trip.cutoffTime)}`
+                            : formatTime(trip.deliveryTime);
                         const openStr = formatTime(trip.openTime);
                         const cutoffStr = formatTime(trip.cutoffTime);
                         const remainingCups = getRemainingCups(trip);
@@ -119,10 +160,13 @@ export default function TripSelection() {
                                 state={
                                     status.active
                                         ? {
-                                              tripId: trip.id,
-                                              name: timeStr,
-                                              time: timeStr,
-                                              selectedMenuIds: trip.selectedMenuIds,
+                                            tripId: trip.id,
+                                            name: timeStr,
+                                            time: timeStr,
+                                            selectedMenuIds: trip.selectedMenuIds,
+                                            orderType: trip.type || "delivery",
+                                            openTime: trip.openTime || null,
+                                            cutoffTime: trip.cutoffTime || null,
                                           }
                                         : null
                                 }
@@ -143,9 +187,9 @@ export default function TripSelection() {
                                     <div className="flex justify-between items-start mb-3">
                                         <div>
                                             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-0.5">
-                                                Delivery
+                                                {isPickup ? "Pickup" : "Delivery"}
                                             </p>
-                                            <p className="text-2xl font-black text-gray-800">
+                                            <p className={`${isPickup ? "text-xl" : "text-2xl"} font-black text-gray-800`}>
                                                 {timeStr}
                                             </p>
                                         </div>
@@ -160,7 +204,7 @@ export default function TripSelection() {
                                     </div>
 
                                     {/* SECTION 2: Capacity Info */}
-                                    {status.text !== "Closed" && (
+                                    {status.text !== "Closed" && !isPickup && (
                                     <div className="mb-3">
                                         <div
                                             className={`flex items-center justify-between p-2 rounded-lg border ${

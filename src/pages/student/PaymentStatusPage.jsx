@@ -64,9 +64,11 @@ export default function PaymentStatusPage({ clearCart }) {
                                 orderId: orderId,
                                 timestamp: new Date().toLocaleString('en-GB'),
                                 tripTime: orderData.tripTime,
+                                orderType: orderData.orderType || "delivery",
                                 cart: orderData.items,
                                 customer: { 
                                     pickupPoint: orderData.pickupPoint,
+                                    pickupTime: orderData.pickupTime || "",
                                     address: orderData.address 
                                 },
                                 totals: { 

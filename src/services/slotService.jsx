@@ -1,4 +1,4 @@
-import { collection, getDocs, getDoc, doc, query, where, onSnapshot, addDoc, deleteDoc } from "firebase/firestore";
+import { collection, getDocs, getDoc, doc, query, where, onSnapshot, addDoc, deleteDoc, updateDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 
 // Subscribe to delivery slots by date (real-time)
@@ -120,6 +120,20 @@ export const deleteSlot = async (slotId) => {
     }
 };
 
+export const updateSlotRider = async (slotId, rider) => {
+    try {
+        await updateDoc(doc(db, "delivery_slots", slotId), {
+            riderId: rider?.id || "",
+            riderName: rider?.name || "",
+            riderPhone: rider?.phone || "",
+            updatedAt: new Date().toISOString(),
+        });
+    } catch (error) {
+        console.error("Error updating slot rider:", error);
+        throw error;
+    }
+};
+
 // Check if slot is still valid (not passed cutoff)
 export const isSlotValid = (slot) => {
     if (!slot) return false;
@@ -132,16 +146,29 @@ export const isSlotValid = (slot) => {
 export const getSlotStatus = (slot) => {
     if (!slot) return { label: "INVALID", color: "bg-gray-100 text-gray-700" };
 
-    const now = new Date();
-    const open = new Date(slot.openTime);
-    const close = new Date(slot.cutoffTime);
-    const delivery = new Date(slot.deliveryTime);
+    const toDate = (v) => (v ? new Date(v) : null);
 
-    if (now > delivery) return { label: "ENDED", color: "bg-stone-200 text-stone-500" };
-    if (now >= close && now <= delivery) return { label: "ONGOING", color: "bg-blue-100 text-blue-700" };
+    const now = new Date();
+    const open = toDate(slot.openTime);
+    const close = toDate(slot.cutoffTime);
+    const end = toDate(slot.deliveryTime || slot.cutoffTime); // pickup uses cutoff
+
+    if (now > end) return { label: "ENDED", color: "bg-stone-200 text-stone-500" };
+    if (now >= close && now <= end) return { label: "ONGOING", color: "bg-blue-100 text-blue-700" };
     if (now >= open && now < close) return { label: "OPEN", color: "bg-green-100 text-green-700 animate-pulse" };
     return { label: "UPCOMING", color: "bg-yellow-100 text-yellow-700" };
 };
+
+export const getSlotType = (slot) => {
+    const typeLabel = (slot.type || "delivery").toUpperCase();
+
+    const typeClass =
+        typeLabel === "DELIVERY"
+            ? "bg-stone-100 text-stone-700 border-stone-300"
+            : "bg-primary/10 text-primary border-primary/20";
+
+    return typeClass;
+}
 
 // Calculate remaining cups for a slot
 export const calculateRemainingCups = (slot, filledCups) => {
