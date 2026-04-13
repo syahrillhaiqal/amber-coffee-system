@@ -204,7 +204,7 @@ export default function TripSelection() {
                                     </div>
 
                                     {/* SECTION 2: Capacity Info */}
-                                    {status.text !== "Closed" && !isPickup && (
+                                    {status.text !== "Closed" && status.text !== "Opens Soon" && !isPickup && (
                                     <div className="mb-3">
                                         <div
                                             className={`flex items-center justify-between p-2 rounded-lg border ${
