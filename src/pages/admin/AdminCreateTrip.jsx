@@ -5,8 +5,7 @@ import { collection, getDocs, addDoc } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 import { getTodayString, combineDateTime } from "../../lib/date";
 import { subscribeToActiveRiders } from "../../services/riderService";
-
-const CATEGORIES = ["Coffee", "Matcha", "Chocolate", "Refresher", "Pastry", "Food"];
+import { MENU_CATEGORIES } from "../../lib/categories";
 const TRIP_TYPES = ["delivery", "pickup"];
 
 export default function AdminCreateTrip() {
@@ -284,7 +283,7 @@ export default function AdminCreateTrip() {
 
                     {/* Scrollable Category List */}
                     <div className="flex-1 overflow-y-auto space-y-6 pr-2">
-                        {CATEGORIES.map(category => {
+                        {MENU_CATEGORIES.map(category => {
                             const items = getItemsByCategory(category);
                             if (items.length === 0) return null;
 
