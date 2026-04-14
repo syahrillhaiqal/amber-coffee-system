@@ -1,11 +1,10 @@
 import { useState, useEffect } from "react";
 import { Plus, Edit2, Trash2, Image as ImageIcon, Loader2, X, CheckSquare, Square } from "lucide-react";
-import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from "firebase/firestore";
+import { collection, addDoc, deleteDoc, doc, updateDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage } from "../../lib/firebase";
+import { DEFAULT_MENU_CATEGORY, MENU_CATEGORIES } from "../../lib/categories";
 import { getAllMenuItems } from "../../services/menuService";
-
-const CATEGORIES = [ "Coffee", "Matcha", "Chocolate", "Refresher", "Pastry", "Food"];
 
 export default function AdminMenu() {
     const [items, setItems] = useState([]);
@@ -18,7 +17,7 @@ export default function AdminMenu() {
         name: "",
         price: "",
         desc: "",
-        category: "Coffee", // Default
+        category: DEFAULT_MENU_CATEGORY,
         isRecommended: false,
         image: null,
     });
@@ -116,7 +115,7 @@ export default function AdminMenu() {
             name: item.name,
             price: item.price,
             desc: item.desc,
-            category: item.category || "Coffee",
+            category: item.category || DEFAULT_MENU_CATEGORY,
             isRecommended: item.isRecommended || false,
             image: null,
         });
@@ -130,7 +129,7 @@ export default function AdminMenu() {
             name: "",
             price: "",
             desc: "",
-            category: "Coffee",
+            category: DEFAULT_MENU_CATEGORY,
             isRecommended: false,
             image: null,
         });
@@ -306,7 +305,7 @@ export default function AdminMenu() {
                                     }
                                     className="w-full p-3 bg-gray-50 rounded-xl border focus:border-primary outline-none"
                                 >
-                                    {CATEGORIES.map((cat) => (
+                                    {MENU_CATEGORIES.map((cat) => (
                                         <option key={cat} value={cat}>
                                             {cat}
                                         </option>

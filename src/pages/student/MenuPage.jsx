@@ -8,8 +8,10 @@ import { loadCurrentTrip } from "../../lib/storage";
 import { getMenuItemsByIds } from "../../services/menuService";
 import { logEvent } from "firebase/analytics";
 import { analytics } from "../../lib/firebase";
-
-const categories = ["Recommended", "Coffee", "Matcha", "Chocolate", "Refresher", "Pastry", "Food"];
+import {
+    RECOMMENDED_CATEGORY,
+    STUDENT_MENU_CATEGORIES,
+} from "../../lib/categories";
 
 export default function MenuPage({addToCart, removeFromCart, cart, updateCartItemProtection}) {
 
@@ -25,7 +27,7 @@ export default function MenuPage({addToCart, removeFromCart, cart, updateCartIte
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedItem, setSelectedItem] = useState(null);
     const [isCartOpen, setIsCartOpen] = useState(false);
-    const [activeCategory, setActiveCategory] = useState("Recommended");
+    const [activeCategory, setActiveCategory] = useState(RECOMMENDED_CATEGORY);
     const [showUpsellModal, setShowUpsellModal] = useState(false);
     const [tripInfo] = useState(() => {
         return location.state || loadCurrentTrip();
@@ -38,9 +40,9 @@ export default function MenuPage({addToCart, removeFromCart, cart, updateCartIte
             item.name.toLowerCase().includes(searchTerm.toLowerCase())
         );
         const grouped = {};
-        grouped["Recommended"] = filtered.filter((item) => item.isRecommended);
-        categories.forEach((cat) => {
-            if (cat !== "Recommended") {
+        grouped[RECOMMENDED_CATEGORY] = filtered.filter((item) => item.isRecommended);
+        STUDENT_MENU_CATEGORIES.forEach((cat) => {
+            if (cat !== RECOMMENDED_CATEGORY) {
                 grouped[cat] = filtered.filter((item) => item.category === cat);
             }
         });
@@ -123,7 +125,7 @@ export default function MenuPage({addToCart, removeFromCart, cart, updateCartIte
     // Scroll Sync
     useEffect(() => {
         const handleScroll = () => {
-            const offsets = categories.map((cat) => {
+            const offsets = STUDENT_MENU_CATEGORIES.map((cat) => {
                 const element = document.getElementById(`cat-${cat}`);
                 if (!element) return { cat, offset: Infinity };
                 return {
@@ -205,7 +207,7 @@ export default function MenuPage({addToCart, removeFromCart, cart, updateCartIte
                         ref={tabsRef}
                         className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide"
                     >
-                        {categories.map((cat) => {
+                        {STUDENT_MENU_CATEGORIES.map((cat) => {
                             if (groupedItems[cat]?.length === 0) return null;
                             return (
                                 <button
@@ -218,7 +220,7 @@ export default function MenuPage({addToCart, removeFromCart, cart, updateCartIte
                                             : "bg-white text-gray-500 border border-gray-200"
                                     }`}
                                 >
-                                    {cat === "Recommended" && (
+                                    {cat === RECOMMENDED_CATEGORY && (
                                         <Star
                                             size={12}
                                             className="inline mr-1 mb-0.5"
@@ -250,7 +252,7 @@ export default function MenuPage({addToCart, removeFromCart, cart, updateCartIte
                         </Link>
                     </div>
                 ) : (
-                    categories.map((cat) => {
+                    STUDENT_MENU_CATEGORIES.map((cat) => {
                         const items = groupedItems[cat];
                         if (!items || items.length === 0) return null;
 
@@ -261,7 +263,7 @@ export default function MenuPage({addToCart, removeFromCart, cart, updateCartIte
                                 className="scroll-mt-40"
                             >
                                 <h3 className="font-bold text-lg text-gray-800 mb-3 flex items-center gap-2">
-                                    {cat === "Recommended" ? (
+                                    {cat === RECOMMENDED_CATEGORY ? (
                                         <Flame
                                             className="text-orange-500"
                                             size={20}
