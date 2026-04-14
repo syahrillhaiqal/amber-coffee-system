@@ -56,7 +56,7 @@ export default function Navbar() {
 
                         <div className="space-y-3">
                             <a 
-                                href="https://wa.me/601164971911" 
+                                href="https://wa.me/60182585268" 
                                 target="_blank" 
                                 rel="noreferrer"
                                 className="flex items-center gap-3 p-3 bg-stone-50 rounded-xl hover:bg-green-50 transition-colors group"
@@ -66,13 +66,13 @@ export default function Navbar() {
                                 </div>
                                 <div>
                                     <p className="text-xs font-bold text-stone-400 uppercase">Delivery Issues</p>
-                                    <p className="font-bold text-stone-800 text-sm">Amber Runner</p>
-                                    <p className="text-xs text-stone-500">+60 11-6497 1911</p>
+                                    <p className="font-bold text-stone-800 text-sm">Amber Support</p>
+                                    <p className="text-xs text-stone-500">+60 18-258 5268</p>
                                 </div>
                             </a>
 
                             <a 
-                                href="https://wa.me/60108443312" 
+                                href="https://wa.me/60108443312"
                                 target="_blank" 
                                 rel="noreferrer"
                                 className="flex items-center gap-3 p-3 bg-stone-50 rounded-xl hover:bg-orange-50 transition-colors group"
