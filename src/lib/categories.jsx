@@ -4,7 +4,8 @@ export const MENU_CATEGORIES = [
     "Chocolate",
     "Refresher",
     "Frappe",
-    "Food",
+    "Hot",
+    "Food"
 ];
 
 export const RECOMMENDED_CATEGORY = "Recommended";
