@@ -140,7 +140,10 @@ export default function AdminRider() {
 
     const historyRows = useMemo(() => {
         return slots
-            .filter((slot) => (slot.type || "delivery") === "delivery")
+            .filter((slot) => 
+                slot.type === "delivery" && 
+                slot.riderId 
+            )
             .map((slot) => {
                 const validOrders = orders.filter(
                     (order) =>
